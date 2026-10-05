@@ -14,8 +14,8 @@ from app.db import get_session
 from app.enrich.translate import translate_comments
 from app.ingest.fetch import make_client
 from app.ingest.jobs import fetch_story_comments
-from app.models import AIUsage, Article, ArticleFeedback, Event, User
-from app.schemas import ArticleOut, CommentNode, EventBatch, FeedbackIn
+from app.models import AIUsage, Article, ArticleFeedback, Digest, Event, User
+from app.schemas import ArticleOut, CommentNode, DigestOut, EventBatch, FeedbackIn
 
 log = structlog.get_logger()
 router = APIRouter()
@@ -131,6 +131,12 @@ async def important(
         if len(picked) == limit:
             break
     return await _out(session, user, picked)
+
+
+@router.get("/digest", response_model=DigestOut | None)
+async def digest(session: Session) -> Digest | None:
+    """Latest overview of the day, or null if none has been written yet."""
+    return await session.scalar(select(Digest).order_by(Digest.created_at.desc()).limit(1))
 
 
 @router.get("/articles/{article_id}", response_model=ArticleOut)

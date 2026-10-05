@@ -1,13 +1,14 @@
 import { MotionConfig } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
-import { PAGE_SIZE, ensureSession, fetchImportant, fetchLatest, fetchMetrics } from "./api";
-import { CommentsSheet } from "./CommentsSheet";
-import { mergeFresh } from "./format";
+import { PAGE_SIZE, ensureSession, fetchDigest, fetchImportant, fetchLatest, fetchMetrics } from "./api";
+import { DiscussionPanel } from "./DiscussionPanel";
+import { DiscussionProvider } from "./discussion";
+import { formatNumber, mergeFresh } from "./format";
 import { DICTS, LangContext } from "./i18n";
 import { Important } from "./Important";
 import { Masthead } from "./Masthead";
 import { type Filter, River } from "./River";
-import type { Article, Lang, Metrics, Theme } from "./types";
+import type { Article, Digest, Lang, Metrics, Theme } from "./types";
 
 function stored<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
   try {
@@ -17,6 +18,10 @@ function stored<T extends string>(key: string, allowed: readonly T[], fallback: 
     return fallback;
   }
 }
+
+/** Only a complete overview is shown; anything else (none yet, an unexpected payload) hides it. */
+const validDigest = (d: Digest | null): Digest | null =>
+  d && typeof d.text_es === "string" && typeof d.text_en === "string" && !Number.isNaN(Date.parse(d.created_at)) ? d : null;
 
 /** How often the open page pulls fresh data while visible. The worker refreshes every 5 minutes. */
 export const POLL_MS = 60_000;
@@ -32,6 +37,7 @@ export default function App() {
   const [shownFilter, setShownFilter] = useState<Filter>({}); // the filter the list on screen belongs to
   const [important, setImportant] = useState<Article[]>([]);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [digest, setDigest] = useState<Digest | null>(null);
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -39,7 +45,6 @@ export default function App() {
   const [canLoadMore, setCanLoadMore] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [sessionReady, setSessionReady] = useState(false);
-  const [sheetArticle, setSheetArticle] = useState<Article | null>(null);
 
   useEffect(() => {
     persist("mynews.lang", lang);
@@ -61,6 +66,7 @@ export default function App() {
     if (!sessionReady) return;
     fetchImportant().then(setImportant).catch(() => setImportant([]));
     fetchMetrics().then(setMetrics).catch(() => setMetrics(null));
+    fetchDigest().then(validDigest).then(setDigest).catch(() => undefined);
   }, [attempt, sessionReady]);
 
   useEffect(() => {
@@ -88,6 +94,7 @@ export default function App() {
       lastRefresh = Date.now();
       fetchImportant().then(setImportant).catch(() => undefined);
       fetchMetrics().then(setMetrics).catch(() => undefined);
+      fetchDigest().then(validDigest).then(setDigest).catch(() => undefined);
       try {
         const fresh = await fetchLatest(filter);
         setArticles((current) => mergeFresh(current, fresh, filter.source === "hn", PAGE_SIZE));
@@ -129,21 +136,26 @@ export default function App() {
   return (
     <MotionConfig reducedMotion="user">
     <LangContext.Provider value={lang}>
+    <DiscussionProvider>
       <div className="page">
-        <Masthead metrics={metrics} onLang={setLang} theme={theme} onTheme={setTheme} />
+        <Masthead metrics={metrics} digest={digest} onLang={setLang} theme={theme} onTheme={setTheme} />
         <main>
-          <Important articles={important} onComments={setSheetArticle} />
+          <Important articles={important} />
           <River
             articles={articles} listKey={JSON.stringify(shownFilter)} filter={filter} onFilter={setFilter} loading={loading} loadingMore={loadingMore} error={error}
             canLoadMore={canLoadMore} onLoadMore={loadMore} onRetry={() => setAttempt(attempt + 1)}
           />
         </main>
-        <footer className="colophon">
+        <footer className="colophon" style={{ viewTransitionName: "colophon" }}>
+          {metrics && metrics.articles_total > 0 && (
+            <p>{t.dateline(formatNumber(metrics.articles_total, lang), formatNumber(metrics.articles_enriched, lang))}</p>
+          )}
           <p>{t.colophon}</p>
           <a href="https://github.com/imhauke/my-news" target="_blank" rel="noopener noreferrer">github.com/imhauke/my-news</a>
         </footer>
-        <CommentsSheet article={sheetArticle} onClose={() => setSheetArticle(null)} />
+        <DiscussionPanel />
       </div>
+    </DiscussionProvider>
     </LangContext.Provider>
     </MotionConfig>
   );

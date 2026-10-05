@@ -2,20 +2,22 @@ import { ArrowUp, Check, MessageSquare } from "lucide-react";
 import { FeedbackButtons } from "./FeedbackButtons";
 import { SECTION_LABEL, useLang, useT } from "./i18n";
 import { SOURCE_LABEL, firstTopic, formatNumber, timeAgo } from "./format";
+import { prefetchComments } from "./api";
+import { useDiscussion } from "./discussion";
 import { useIsRead } from "./local";
 import type { Article } from "./types";
 
 interface Props {
   article: Article;
   showTime?: boolean;
-  commentsOpen?: boolean;
-  onToggleComments?: () => void;
 }
 
-export function StoryMeta({ article, showTime = true, commentsOpen, onToggleComments }: Props) {
+export function StoryMeta({ article, showTime = true }: Props) {
   const lang = useLang();
   const t = useT();
   const read = useIsRead(article.id);
+  const { active, toggle } = useDiscussion();
+  const open = active?.id === article.id;
   // Reuters and Ars are labelled with their section; on HN everything is "front", so the topic is used.
   const label = article.source === "hn" || !article.section
     ? firstTopic(article, lang)
@@ -37,10 +39,18 @@ export function StoryMeta({ article, showTime = true, commentsOpen, onToggleComm
           {formatNumber(article.hn_points, lang)}
         </span>
       )}
-      {article.hn_story_id != null && onToggleComments && (
-        <button className="comments-toggle" onClick={onToggleComments} aria-expanded={commentsOpen}>
+      {article.hn_story_id != null && (
+        <button
+          className="comments-toggle"
+          aria-expanded={open}
+          aria-controls={open ? "discussion-panel" : undefined}
+          onClick={() => toggle(article)}
+          // Start loading on intent, so the panel usually opens with the thread already there.
+          onPointerEnter={() => prefetchComments(article.id)}
+          onFocus={() => prefetchComments(article.id)}
+        >
           <MessageSquare aria-hidden size={14} strokeWidth={2} />
-          {commentsOpen ? t.hideComments : t.comments(article.hn_comment_count ?? 0)}
+          {t.comments(article.hn_comment_count ?? 0)}
         </button>
       )}
       <FeedbackButtons article={article} />

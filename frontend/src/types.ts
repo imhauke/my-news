@@ -36,6 +36,13 @@ export interface CommentNode {
   children: CommentNode[];
 }
 
+export interface Digest {
+  text_en: string;
+  text_es: string;
+  article_ids: number[];
+  created_at: string;
+}
+
 export interface Metrics {
   articles_total: number;
   articles_enriched: number;

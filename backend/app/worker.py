@@ -8,6 +8,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from app.config import get_settings
 from app.enrich import jobs as enrich
+from app.enrich.digest import refresh_digest
 from app.ingest import jobs
 from app.logging import configure_logging
 
@@ -30,6 +31,7 @@ async def refresh() -> None:
         if isinstance(result, Exception):
             log.error("ingest_failed", source=name, error=str(result))
     await enrich_pipeline()
+    await refresh_digest()
 
 
 async def main() -> None:

@@ -1,0 +1,82 @@
+from datetime import UTC, datetime, timedelta
+
+import pytest
+from sqlalchemy import select
+
+from app.enrich import digest
+from app.enrich.digest import DigestOut, is_due
+from app.models import Article, Digest
+
+NOW = datetime(2026, 10, 5, 12, tzinfo=UTC)
+
+
+def test_is_due_rules():
+    assert is_due(None, [1, 2, 3], NOW)
+    fresh = Digest(article_ids=[1, 2, 3, 4, 5], created_at=NOW - timedelta(minutes=10))
+    assert not is_due(fresh, [9, 8, 7, 6, 5], NOW)  # changed, but too recent to rewrite
+    settled = Digest(article_ids=[1, 2, 3, 4, 5], created_at=NOW - timedelta(minutes=45))
+    assert not is_due(settled, [5, 4, 3, 2, 1, 99], NOW)  # same top five
+    assert is_due(settled, [1, 2, 3, 4, 6], NOW)  # top stories changed
+    assert is_due(Digest(article_ids=[1], created_at=NOW - timedelta(hours=4)), [1], NOW)
+
+
+class _Reuse:
+    def __init__(self, session):
+        self.session = session
+
+    async def __aenter__(self):
+        return self.session
+
+    async def __aexit__(self, *exc):
+        return False
+
+
+class FakeAI:
+    def __init__(self):
+        self.prompts: list[str] = []
+
+    async def generate_json(self, prompt, schema, **kw):
+        self.prompts.append(prompt)
+        return DigestOut(summary_en="Today the main stories are " + "x" * 40, summary_es="Hoy destaca " + "y" * 40)
+
+
+@pytest.fixture
+async def stories(session, monkeypatch):
+    rows = [
+        Article(source=src, external_id=f"{src}{i}", url=f"https://a.test/{src}{i}", url_normalized=f"a.test/{src}{i}",
+                title=f"{src} story {i}", published_at=NOW - timedelta(hours=1), global_score=0.9 - i / 100,
+                ai_summary_en=f"Description {i}")
+        for src in ("reuters", "ars", "hn") for i in range(7)
+    ]
+    session.add_all(rows)
+    await session.commit()
+    monkeypatch.setattr(digest, "SessionLocal", lambda: _Reuse(session))
+    return rows
+
+
+async def test_refresh_writes_a_balanced_digest_once(session, stories):
+    ai = FakeAI()
+    assert await digest.refresh_digest(ai, now=NOW) is True
+    saved = await session.scalar(select(Digest))
+    assert saved.text_es.startswith("Hoy destaca") and len(saved.article_ids) == digest.TOP_STORIES
+    picked = [a for a in stories if a.id in saved.article_ids]
+    assert max(sum(a.source == s for a in picked) for s in ("reuters", "ars", "hn")) <= digest.PER_SOURCE_CAP
+    assert "Description 0" in ai.prompts[0]
+    assert await digest.refresh_digest(ai, now=NOW + timedelta(minutes=5)) is False  # not due yet
+    assert len(ai.prompts) == 1
+
+
+async def test_falls_back_to_the_lite_model(session, stories):
+    from app.ai.base import AIError
+
+    class Overloaded(FakeAI):
+        async def generate_json(self, prompt, schema, model, **kw):
+            self.prompts.append(model)
+            if model == digest.get_settings().gemini_model_flash:
+                raise AIError("Gemini 503 after 5 attempts")
+            return await super().generate_json(prompt, schema, **kw)
+
+    ai = Overloaded()
+    assert await digest.refresh_digest(ai, now=NOW) is True
+    saved = await session.scalar(select(Digest))
+    assert saved.model == digest.get_settings().gemini_model_lite

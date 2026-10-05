@@ -205,3 +205,18 @@ class AIUsage(Base):
     output_tokens: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[str] = mapped_column(String(16))  # ok | rate_limited | error
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Digest(Base):
+    """Daily overview shown under the masthead: a few sentences summarising the most relevant
+    stories, written by Gemini in English and Spanish. A new row is added when it is refreshed."""
+
+    __tablename__ = "digests"
+    __table_args__ = (Index("ix_digests_created_at", "created_at"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    text_en: Mapped[str] = mapped_column(Text)
+    text_es: Mapped[str] = mapped_column(Text)
+    article_ids: Mapped[list[int]] = mapped_column(ARRAY(Integer))
+    model: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

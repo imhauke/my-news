@@ -45,10 +45,13 @@ describe("App", () => {
       "/feed/important": [lead],
       "/feed/latest": [hn],
       "/metrics": { articles_total: 240, articles_enriched: 240, last_ingest_at: null },
+      "/digest": { text_es: "Hoy destaca la segunda vuelta en Brasil.", text_en: "Brazil heads to a runoff.",
+                   article_ids: [2], created_at: "2026-10-05T12:00:00Z" },
     });
     render(<App />);
     const important = await screen.findByRole("region", { name: "Lo importante hoy" });
     expect(within(important).getByRole("link", { name: "Se reanudan las conversaciones en Ginebra" })).toBeInTheDocument();
+    expect(await screen.findByText("Hoy destaca la segunda vuelta en Brasil.")).toBeInTheDocument();
     expect(within(important).getByText("Mundo")).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "Sale Rust 2.0" })).toHaveAttribute("href", hn.url);
     expect(screen.getByText("Rust publica una nueva versión mayor.")).toBeInTheDocument();
@@ -137,13 +140,25 @@ describe("App", () => {
     expect(document.documentElement.dataset.theme).toBeUndefined();
   });
 
-  it("opens the discussion of a front-page HN story", async () => {
-    mockApi({ "/feed/important": [hn], "/comments": [] });
-    HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) { this.open = true; };
+  it("opens any story's thread in one non-modal side panel and switches threads in place", async () => {
+    const other: Article = { ...hn, id: 7, title_es: "Otro hilo", hn_story_id: 77, hn_comment_count: 3 };
+    mockApi({ "/feed/important": [hn], "/feed/latest": [other], "/comments": [] });
     render(<App />);
     const important = await screen.findByRole("region", { name: "Lo importante hoy" });
+
+    // from the front lane
     fireEvent.click(within(important).getByRole("button", { name: /42 comentarios/ }));
-    expect(await screen.findByText("Este hilo todavía no tiene comentarios.")).toBeInTheDocument();
+    const panel = await screen.findByRole("complementary", { name: "Sale Rust 2.0" });
+    expect(await within(panel).findByText("Este hilo todavía no tiene comentarios.")).toBeInTheDocument();
+    expect(within(important).getByRole("button", { name: /42 comentarios/ })).toHaveAttribute("aria-expanded", "true");
+
+    // the page is still usable: a story below opens its thread in the same panel
+    fireEvent.click(screen.getByRole("button", { name: /3 comentarios/ }));
+    expect(await screen.findByRole("complementary", { name: "Otro hilo" })).toBeInTheDocument();
+    expect(screen.getAllByRole("complementary")).toHaveLength(1);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("complementary")).not.toBeInTheDocument());
   });
 
   it("refreshes itself while visible, adding new stories on top", async () => {

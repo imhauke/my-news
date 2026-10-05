@@ -1,6 +1,6 @@
 import { ChevronRight, ExternalLink, Languages } from "lucide-react";
 import { useEffect, useState } from "react";
-import { fetchComments } from "./api";
+import { cachedComments, loadComments } from "./api";
 import { timeAgo } from "./format";
 import { useLang, useT } from "./i18n";
 import type { CommentNode } from "./types";
@@ -37,10 +37,26 @@ function Node({ node, translated }: { node: CommentNode; translated: boolean }) 
   );
 }
 
+function Skeleton() {
+  return (
+    <div className="comment-skeleton" aria-hidden>
+      {[92, 78, 85, 60, 88, 70].map((w, i) => <span key={i} style={{ width: `${w}%` }} />)}
+    </div>
+  );
+}
+
+/**
+ * The thread, loaded progressively: whatever is cached shows at once; in Spanish the original
+ * appears first and is swapped for the translation when Gemini returns it, so the reader never
+ * waits on the translation to start reading.
+ */
 export function Comments({ articleId, storyId }: { articleId: number; storyId: number }) {
   const lang = useLang();
   const t = useT();
-  const [tree, setTree] = useState<CommentNode[] | null>(null);
+  const [tree, setTree] = useState<CommentNode[] | null>(
+    () => cachedComments(articleId, lang) ?? (lang === "es" ? cachedComments(articleId, "en") : null),
+  );
+  const [translating, setTranslating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [showOriginal, setShowOriginal] = useState(false);
@@ -48,10 +64,25 @@ export function Comments({ articleId, storyId }: { articleId: number; storyId: n
   useEffect(() => {
     let cancelled = false;
     setError(null);
-    setTree(null);
-    fetchComments(articleId, lang)
-      .then((tr) => !cancelled && setTree(tr))
-      .catch((e: Error) => !cancelled && setError(e.message));
+    const ready = cachedComments(articleId, lang);
+    if (ready) {
+      setTree(ready);
+      setTranslating(false);
+      return;
+    }
+    const original = cachedComments(articleId, "en");
+    setTree(lang === "es" ? original : null);
+    setTranslating(lang === "es");
+    if (lang === "es" && !original) {
+      loadComments(articleId, "en").then((tr) => !cancelled && setTree((cur) => cur ?? tr)).catch(() => undefined);
+    }
+    loadComments(articleId, lang)
+      .then((tr) => { if (!cancelled) { setTree(tr); setTranslating(false); } })
+      .catch((e: Error) => {
+        if (cancelled) return;
+        setTranslating(false);
+        setTree((cur) => { if (!cur) setError(e.message); return cur; });
+      });
     return () => { cancelled = true; };
   }, [articleId, lang, attempt]);
 
@@ -70,20 +101,31 @@ export function Comments({ articleId, storyId }: { articleId: number; storyId: n
     );
   }
   if (!tree) {
-    return <div className="discussion-state" aria-live="polite">{lang === "es" ? t.loadingDiscussion : t.loadingDiscussionEn}</div>;
+    return (
+      <div className="discussion" aria-busy>
+        <span className="visually-hidden" aria-live="polite">{t.loadingDiscussionEn}</span>
+        <Skeleton />
+      </div>
+    );
   }
   if (tree.length === 0) return <div className="discussion-state">{t.noComments} {hnLink}</div>;
 
-  const translated = lang === "es" && !showOriginal;
+  const translated = lang === "es" && !translating && !showOriginal;
   return (
     <div className="discussion">
       {lang === "es" && (
-        <p className="translation-note">
+        <p className="translation-note" aria-live="polite">
           <Languages aria-hidden size={14} />
-          {t.translatedNote}{" "}
-          <button className="text-button" onClick={() => setShowOriginal(!showOriginal)}>
-            {showOriginal ? t.showTranslation : t.showOriginal}
-          </button>
+          {translating ? (
+            <span className="translating">{t.translating}</span>
+          ) : (
+            <>
+              {t.translatedNote}{" "}
+              <button className="text-button" onClick={() => setShowOriginal(!showOriginal)}>
+                {showOriginal ? t.showTranslation : t.showOriginal}
+              </button>
+            </>
+          )}
         </p>
       )}
       <ul className="comment-tree">{tree.map((n) => <Node key={n.id} node={n} translated={translated} />)}</ul>

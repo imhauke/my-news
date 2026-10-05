@@ -1,10 +1,10 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import { motion } from "motion/react";
-import { formatNumber, todayLine } from "./format";
+import { clockTime, formatNumber, todayLine } from "./format";
 import { useLang, useT } from "./i18n";
 import { EASE_OUT, entrance } from "./motion";
 import { SegmentedControl } from "./SegmentedControl";
-import type { Lang, Metrics, Theme } from "./types";
+import type { Digest, Lang, Metrics, Theme } from "./types";
 
 function GithubMark() {
   return (
@@ -16,12 +16,13 @@ function GithubMark() {
 
 interface Props {
   metrics: Metrics | null;
+  digest: Digest | null;
   onLang: (l: Lang) => void;
   theme: Theme;
   onTheme: (t: Theme) => void;
 }
 
-export function Masthead({ metrics, onLang, theme, onTheme }: Props) {
+export function Masthead({ metrics, digest, onLang, theme, onTheme }: Props) {
   const lang = useLang();
   const t = useT();
   const themes: { value: Theme; label: string; Icon: typeof Sun }[] = [
@@ -30,7 +31,8 @@ export function Masthead({ metrics, onLang, theme, onTheme }: Props) {
     { value: "system", label: t.themeSystem, Icon: Monitor },
   ];
   return (
-    <motion.header className="masthead" {...entrance} transition={{ duration: 0.8, ease: EASE_OUT }}>
+    <motion.header className="masthead" style={{ viewTransitionName: "masthead" }} {...entrance}
+                   transition={{ duration: 0.8, ease: EASE_OUT }}>
       <div className="masthead-top">
         <h1 className="wordmark">MyNews</h1>
         <div className="masthead-tools">
@@ -57,10 +59,16 @@ export function Masthead({ metrics, onLang, theme, onTheme }: Props) {
       </div>
       <p className="dateline">
         <time>{todayLine(lang)}</time>
-        {metrics && metrics.articles_total > 0 && (
+        {!digest && metrics && metrics.articles_total > 0 && (
           <span>{t.dateline(formatNumber(metrics.articles_total, lang), formatNumber(metrics.articles_enriched, lang))}</span>
         )}
       </p>
+      {digest && (
+        <div className="digest">
+          <p className="digest-text" lang={lang}>{lang === "es" ? digest.text_es : digest.text_en}</p>
+          <p className="digest-note">{t.digestNote(clockTime(digest.created_at, lang))}</p>
+        </div>
+      )}
     </motion.header>
   );
 }

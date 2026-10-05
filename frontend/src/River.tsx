@@ -1,6 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useRef, useState } from "react";
-import { Comments } from "./Comments";
 import { SOURCE_LABEL, SOURCE_SECTIONS, clockTime, description, groupByDay, groupByFrontDay } from "./format";
 import { Headline } from "./Headline";
 import { EASE_OUT, LOAD_SEQUENCE_MS, MAX_STAGGER_STEPS, STAGGER_S, entrance } from "./motion";
@@ -22,13 +21,13 @@ interface ItemProps {
 function RiverItem({ article, position, ranked, delay }: ItemProps) {
   const lang = useLang();
   const ref = useImpression<HTMLLIElement>(article.id, position);
-  const [open, setOpen] = useState(false);
   const [hasPhoto, setHasPhoto] = useState(Boolean(article.image_url));
   const text = description(article, lang);
   return (
     <motion.li
       ref={ref}
       className={`river-item${hasPhoto ? " has-photo" : ""}`}
+      style={{ viewTransitionName: `river-${article.id}` }}
       initial={entrance.initial}
       whileInView={entrance.animate}
       viewport={{ once: true, amount: 0.1 }}
@@ -42,12 +41,7 @@ function RiverItem({ article, position, ranked, delay }: ItemProps) {
       <div className="river-body">
         <Headline article={article} position={position} />
         {text && <p className="description" lang={lang}>{text}</p>}
-        <StoryMeta article={article} showTime={false} commentsOpen={open} onToggleComments={() => setOpen(!open)} />
-        {article.hn_story_id != null && (
-          <div className="expander" data-open={open}>
-            <div>{open && <Comments articleId={article.id} storyId={article.hn_story_id} />}</div>
-          </div>
-        )}
+        <StoryMeta article={article} showTime={false} />
       </div>
       <Photo src={article.image_url} className="river-photo" width={480} onReject={() => setHasPhoto(false)} />
     </motion.li>
@@ -96,7 +90,7 @@ export function River({
     : 0);
   return (
     <section className="river" aria-labelledby="river-title">
-      <div className="river-head">
+      <div className="river-head" style={{ viewTransitionName: "river-head" }}>
         <h2 id="river-title" className="section-title">{t.latest}</h2>
         <div className="filter-rows">
           <SegmentedControl
@@ -154,9 +148,9 @@ export function River({
         animate={{ opacity: loading && articles.length > 0 ? 0.45 : 1 }}
         transition={{ duration: 0.25 }}
       >
-        {groups.map((g) => (
+        {groups.map((g, i) => (
           <div key={g.label} className="day">
-            <h3 className="day-label">{g.label}</h3>
+            <h3 className="day-label" style={{ viewTransitionName: `day-${i}` }}>{g.label}</h3>
             <ol className="river-list">
               {g.items.map((a) => <RiverItem key={a.id} article={a} position={position++} ranked={ranked} delay={delayFor()} />)}
             </ol>

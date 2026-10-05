@@ -51,6 +51,15 @@ class EventIn(BaseModel):
     position: int | None = None
 
 
+class DigestOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    text_en: str
+    text_es: str
+    article_ids: list[int]
+    created_at: datetime
+
+
 class FeedbackIn(BaseModel):
     value: Literal[-1, 0, 1]
 

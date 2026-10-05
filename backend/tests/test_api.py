@@ -154,3 +154,16 @@ async def test_hacker_news_follows_front_page_order(session, client):
     assert titles == ["T2", "T1", "T4", "T3"]  # newest day first, then HN's own ranking
     page2 = (await client.get("/feed/latest", params={"source": "hn", "limit": 2, "offset": 2})).json()
     assert [a["title"] for a in page2] == ["T4", "T3"]
+
+
+async def test_digest_endpoint_returns_latest_or_null(session, client):
+    from app.models import Digest
+
+    assert (await client.get("/digest")).json() is None
+    session.add_all([
+        Digest(text_en="old", text_es="viejo", article_ids=[1], model="m", created_at=NOW - timedelta(hours=2)),
+        Digest(text_en="new", text_es="nuevo", article_ids=[2], model="m", created_at=NOW),
+    ])
+    await session.commit()
+    body = (await client.get("/digest")).json()
+    assert (body["text_en"], body["text_es"], body["article_ids"]) == ("new", "nuevo", [2])
