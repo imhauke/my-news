@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     scheduler_enabled: bool = True
     refresh_minutes: int = 5  # sources, enrichment and live HN threads are refreshed this often
+    api_docs: bool = True  # /docs, /redoc and /openapi.json; set API_DOCS=false in production
     cookie_secure: bool = False
 
     # Gemini (free tier)

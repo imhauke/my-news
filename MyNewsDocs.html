@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyNews · Arquitectura y CI/CD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<style>
+  :root {
+    --paper: #f4f5f7; --raised: #ffffff; --ink: #121417; --ink-2: #4b525c; --ink-3: #626a76;
+    --rule: #d9dce1; --accent: #0e6b58; --wash: #e2efeb; --warn: #9a5b00; --warn-wash: #f6ead6;
+    --muted-wash: #eceef1; --serif: "Source Serif 4", Georgia, serif; --sans: "Schibsted Grotesk", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+    --node: #ffffff; --node-stroke: #c9cdd4; --edge: #aab0ba; --packet: #0e6b58; --zone: #e9ebef;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0f1114; --raised: #171a1f; --ink: #eceef1; --ink-2: #a9b0bb; --ink-3: #8f97a3; --rule: #272c34;
+      --accent: #5cc3a6; --wash: #15302a; --warn: #e2a85a; --warn-wash: #2b2217; --muted-wash: #1d2027;
+      --node: #1b1f25; --node-stroke: #343a44; --edge: #4b525c; --packet: #5cc3a6; --zone: #14171c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); }
+  body { margin: 0; color: var(--ink); font: 400 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+  ::selection { background: var(--accent); color: var(--paper); }
+  .wrap { max-width: 74rem; margin: 0 auto; padding: 0 clamp(1rem, 4vw, 3rem) 5rem; }
+  header.top { padding: 3rem 0 1.5rem; border-bottom: 2px solid var(--ink); }
+  h1 { margin: 0; font: 700 clamp(2.6rem, 7vw, 4.6rem)/0.95 var(--serif); letter-spacing: -0.035em; }
+  .lede { margin: 1rem 0 0; max-width: 62ch; font: 400 1.15rem/1.55 var(--serif); color: var(--ink-2); }
+  .facts { display: flex; flex-wrap: wrap; gap: 0.5rem 1.75rem; margin-top: 1.25rem; font-size: 0.9rem; color: var(--ink-3); }
+  .facts b { color: var(--ink); font-weight: 600; }
+  nav.toc { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 1.25rem 0 0; }
+  nav.toc a { padding: 0.3rem 0.75rem; border-radius: 999px; background: var(--muted-wash); color: var(--ink-2); text-decoration: none; font-size: 0.85rem; font-weight: 500; }
+  nav.toc a:hover { color: var(--ink); background: var(--wash); }
+  section { padding-top: 3.25rem; }
+  h2 { margin: 0 0 0.35rem; font: 600 clamp(1.6rem, 3vw, 2.1rem)/1.15 var(--serif); letter-spacing: -0.015em; }
+  h3 { margin: 1.75rem 0 0.4rem; font: 600 1.2rem/1.3 var(--serif); }
+  .sub { margin: 0 0 1.25rem; color: var(--ink-2); max-width: 70ch; }
+  p { max-width: 72ch; }
+  a { color: var(--accent); text-underline-offset: 0.18em; }
+  code { font: 0.86em var(--mono); background: var(--muted-wash); padding: 0.1em 0.35em; border-radius: 4px; }
+  .figure { background: var(--raised); border: 1px solid var(--rule); border-radius: 14px; padding: clamp(0.75rem, 2vw, 1.5rem); overflow-x: auto; }
+  .figure svg { display: block; width: 100%; min-width: 760px; height: auto; }
+  .caption { margin: 0.6rem 0 0; font-size: 0.85rem; color: var(--ink-3); }
+  .legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; margin-top: 0.75rem; font-size: 0.82rem; color: var(--ink-2); }
+  .legend i { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%; margin-right: 0.35rem; vertical-align: -0.05rem; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem 2rem; }
+  .card { background: var(--raised); border: 1px solid var(--rule); border-radius: 12px; padding: 1rem 1.15rem; }
+  .card h4 { margin: 0 0 0.3rem; font: 600 1rem/1.3 var(--sans); }
+  .card p { margin: 0; font-size: 0.93rem; color: var(--ink-2); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  th, td { text-align: left; vertical-align: top; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--rule); }
+  th { font-size: 0.78rem; font-weight: 600; color: var(--ink-3); text-transform: none; }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+  .table-wrap { overflow-x: auto; background: var(--raised); border: 1px solid var(--rule); border-radius: 12px; }
+  .chip { display: inline-block; padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+  .chip.ok { background: var(--wash); color: var(--accent); }
+  .chip.part { background: var(--warn-wash); color: var(--warn); }
+  .chip.todo { background: var(--muted-wash); color: var(--ink-3); }
+  pre { margin: 0; }
+  pre code.hljs { display: block; padding: 1rem 1.1rem; border-radius: 10px; font: 0.82rem/1.55 var(--mono); background: var(--raised); border: 1px solid var(--rule); overflow-x: auto; }
+  .tabs { margin-top: 0.5rem; }
+  .tablist { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 10px; background: var(--muted-wash); margin-bottom: 0.6rem; }
+  .tablist button { border: 0; background: none; font: 500 0.84rem var(--sans); color: var(--ink-2); padding: 0.35rem 0.8rem; border-radius: 7px; cursor: pointer; }
+  .tablist button[aria-selected="true"] { background: var(--raised); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
+  .tabpanel[hidden] { display: none; }
+  .tabpanel .note { margin: 0.55rem 0 0; font-size: 0.88rem; color: var(--ink-2); }
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0.75rem 0 0; }
+  .steps li { counter-increment: s; position: relative; padding: 0 0 0.75rem 2.2rem; max-width: 72ch; }
+  .steps li::before { content: counter(s); position: absolute; left: 0; top: 0.05rem; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--ink); color: var(--paper); font-size: 0.78rem; font-weight: 700; display: grid; place-items: center; }
+  .callout { border-left: 3px solid var(--accent); background: var(--wash); padding: 0.75rem 1rem; border-radius: 0 10px 10px 0; margin: 1rem 0; max-width: 72ch; font-size: 0.95rem; }
+  .callout.warn { border-color: var(--warn); background: var(--warn-wash); }
+  .toggle { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--muted-wash); margin-bottom: 0.75rem; }
+  .toggle button { border: 0; background: none; font: 600 0.85rem var(--sans); color: var(--ink-2); padding: 0.35rem 0.9rem; border-radius: 7px; cursor: pointer; }
+  .toggle button[aria-pressed="true"] { background: var(--raised); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
+  footer.end { margin-top: 4rem; padding-top: 1.25rem; border-top: 2px solid var(--ink); font-size: 0.85rem; color: var(--ink-3); }
+  /* SVG diagram styles */
+  .node rect { fill: var(--node); stroke: var(--node-stroke); stroke-width: 1.2; }
+  .node .t { font: 600 13px var(--sans); fill: var(--ink); }
+  .node .s { font: 400 11px var(--sans); fill: var(--ink-3); }
+  .node.accent rect { stroke: var(--accent); stroke-width: 1.6; }
+  .node.ext rect { stroke-dasharray: 4 3; }
+  .zone rect { fill: var(--zone); stroke: var(--node-stroke); stroke-dasharray: 6 5; }
+  .zone text { font: 600 11px var(--sans); fill: var(--ink-3); letter-spacing: 0.02em; }
+  .edge { fill: none; stroke: var(--edge); stroke-width: 1.6; }
+  .edge.ai { stroke-dasharray: 5 4; }
+  .elabel { font: 500 10.5px var(--sans); fill: var(--ink-3); }
+  .packet { fill: var(--packet); }
+  .packet.req { fill: #3a7bd5; }
+  .packet.ai { fill: #b36ad9; }
+  .stage rect { fill: var(--node); stroke: var(--node-stroke); stroke-width: 1.2; }
+  .stage.on rect { stroke: var(--accent); fill: var(--wash); }
+  .stage .t { font: 600 12.5px var(--sans); fill: var(--ink); }
+  .stage .s { font: 400 10.5px var(--sans); fill: var(--ink-3); }
+  .blocked { font: 600 11px var(--sans); fill: #c0392b; }
+  .inner, .stage rect { transform-box: fill-box; transform-origin: center; }
+  @media (max-width: 40rem) { td:first-child { white-space: normal; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>MyNews</h1>
+  <p class="lede">Cómo está construida la aplicación de punta a punta, cómo llega cada cambio a producción y qué conceptos de la especificación inicial están ya aplicados, con el código que los resuelve.</p>
+  <div class="facts">
+    <span><b>news.janguzman.com</b> en producción</span>
+    <span><b>3</b> fuentes · refresco cada <b>5 min</b></span>
+    <span><b>8</b> migraciones de base de datos</span>
+    <span><b>53 + 23</b> tests (backend + frontend)</span>
+  </div>
+  <nav class="toc" aria-label="Secciones">
+    <a href="#arquitectura">Arquitectura</a><a href="#pdf">Del PDF a la realidad</a><a href="#codigo">Código clave</a>
+    <a href="#cicd">CI/CD</a><a href="#dominio">Dominio y páginas</a><a href="#vps">Caddy en el VPS</a><a href="#pendiente">Lo que falta</a>
+  </nav>
+</header>
+
+<!-- ───────────────────────────── ARQUITECTURA ───────────────────────────── -->
+<section id="arquitectura">
+  <h2>Arquitectura de punta a punta</h2>
+  <p class="sub">Todo corre en un VPS con Docker Compose salvo Gemini y las fuentes. Los puntos que circulan son datos: verdes los de ingesta, morados las llamadas a la IA y azules las peticiones de un lector.</p>
+  <div class="figure">
+    <svg id="arch" viewBox="0 0 1120 560" role="img" aria-labelledby="arch-title arch-desc">
+      <title id="arch-title">Arquitectura de MyNews</title>
+      <desc id="arch-desc">Las fuentes alimentan al worker, que guarda en PostgreSQL y consulta a Gemini. El lector entra por el proxy común con HTTPS, que reenvía al Caddy de MyNews, que sirve el frontend y reenvía /api a la API FastAPI, que lee de PostgreSQL.</desc>
+      <!-- zones -->
+      <g class="zone" data-anim="zone"><rect x="250" y="20" width="840" height="520" rx="16"/><text x="268" y="42">VPS</text></g>
+      <g class="zone" data-anim="zone"><rect x="270" y="58" width="635" height="462" rx="14" style="fill: var(--paper)"/><text x="288" y="80">Docker Compose · proyecto mynews</text></g>
+      <!-- edges (drawn) -->
+      <path id="e-reuters" class="edge" d="M190 110 C 240 110, 250 150, 300 160"/>
+      <path id="e-ars" class="edge" d="M190 230 C 240 230, 250 200, 300 195"/>
+      <path id="e-hn" class="edge" d="M190 350 C 240 350, 250 250, 300 230"/>
+      <path id="e-worker-db" class="edge" d="M470 200 C 515 200, 515 300, 555 300"/>
+      <path id="e-worker-ai" class="edge ai" d="M385 250 C 385 420, 300 470, 205 470"/>
+      <path id="e-api-ai" class="edge ai" d="M790 400 C 790 500, 320 505, 205 495"/>
+      <path id="e-api-db" class="edge" d="M720 300 L 680 300"/>
+      <path id="e-web-api" class="edge" d="M825 220 L 825 270"/>
+      <path id="e-edge-web" class="edge" d="M950 190 L 870 190"/>
+      <path id="e-user-edge" class="edge" d="M1062 190 L 1020 190"/>
+      <text class="elabel" x="300" y="128">cada 5 min</text>
+      <text class="elabel" x="505" y="238">upsert</text>
+      <text class="elabel" x="1022" y="180">HTTPS</text>
+      <text class="elabel" x="884" y="180">red edge</text>
+      <text class="elabel" x="832" y="250">/api/*</text>
+      <!-- nodes -->
+      <g class="node ext" data-anim="node" transform="translate(40 80)"><g class="inner"><rect width="150" height="60" rx="10"/><text class="t" x="14" y="26">Reuters</text><text class="s" x="14" y="44">sitemap de noticias</text></g></g>
+      <g class="node ext" data-anim="node" transform="translate(40 200)"><g class="inner"><rect width="150" height="60" rx="10"/><text class="t" x="14" y="26">Ars Technica</text><text class="s" x="14" y="44">RSS por sección</text></g></g>
+      <g class="node ext" data-anim="node" transform="translate(40 320)"><g class="inner"><rect width="150" height="60" rx="10"/><text class="t" x="14" y="26">Hacker News</text><text class="s" x="14" y="44">/front + Algolia</text></g></g>
+      <g class="node ext accent" data-anim="node" transform="translate(25 445)"><g class="inner"><rect width="180" height="70" rx="10"/><text class="t" x="14" y="26">Gemini API</text><text class="s" x="14" y="44">Flash-Lite · Flash</text><text class="s" x="14" y="59">enriquecer · traducir · resumir</text></g></g>
+      <g class="node accent" data-anim="node" transform="translate(300 140)"><g class="inner"><rect width="170" height="110" rx="10"/><text class="t" x="14" y="26">Worker</text><text class="s" x="14" y="46">ingesta y deduplicación</text><text class="s" x="14" y="62">enriquecimiento (etapa 0)</text><text class="s" x="14" y="78">comentarios HN</text><text class="s" x="14" y="94">resúmenes del día</text></g></g>
+      <g class="node" data-anim="node" transform="translate(555 260)"><g class="inner"><rect width="125" height="80" rx="10"/><text class="t" x="12" y="28">PostgreSQL</text><text class="s" x="12" y="46">+ pgvector</text><text class="s" x="12" y="62">Alembic 0001→0008</text></g></g>
+      <g class="node accent" data-anim="node" transform="translate(720 270)"><g class="inner"><rect width="165" height="130" rx="10"/><text class="t" x="14" y="26">API FastAPI</text><text class="s" x="14" y="46">feeds · comentarios</text><text class="s" x="14" y="62">sesión anónima</text><text class="s" x="14" y="78">votos · eventos</text><text class="s" x="14" y="94">resúmenes · métricas</text><text class="s" x="14" y="110">traducción bajo demanda</text></g></g>
+      <g class="node" data-anim="node" transform="translate(780 150)"><g class="inner"><rect width="90" height="70" rx="10"/><text class="t" x="12" y="26">Caddy web</text><text class="s" x="12" y="44">React + TS</text><text class="s" x="12" y="58">estático</text></g></g>
+      <g class="node accent" data-anim="node" transform="translate(950 150)"><g class="inner"><rect width="70" height="80" rx="10"/><text class="t" x="10" y="26">Edge</text><text class="s" x="10" y="44">Caddy</text><text class="s" x="10" y="58">TLS</text><text class="s" x="10" y="72">:80 :443</text></g></g>
+      <g class="node" data-anim="node" transform="translate(1062 155)"><g class="inner"><rect width="50" height="70" rx="10"/><text class="t" x="7" y="32">Lector</text><text class="s" x="7" y="50">web</text></g></g>
+      <!-- packets -->
+      <circle class="packet" r="4.5" data-path="#e-reuters"/><circle class="packet" r="4.5" data-path="#e-ars"/><circle class="packet" r="4.5" data-path="#e-hn"/>
+      <circle class="packet" r="4.5" data-path="#e-worker-db"/>
+      <circle class="packet ai" r="4.5" data-path="#e-worker-ai"/><circle class="packet ai" r="4.5" data-path="#e-api-ai"/>
+      <circle class="packet req" r="4.5" data-path="#e-user-edge"/><circle class="packet req" r="4.5" data-path="#e-edge-web"/>
+      <circle class="packet req" r="4.5" data-path="#e-web-api"/><circle class="packet req" r="4.5" data-path="#e-api-db"/>
+    </svg>
+  </div>
+  <div class="legend"><span><i style="background:var(--packet)"></i>ingesta y escritura</span><span><i style="background:#b36ad9"></i>llamadas a Gemini</span><span><i style="background:#3a7bd5"></i>petición de un lector</span><span>Borde discontinuo: servicio externo</span></div>
+
+  <div class="grid2" style="margin-top:1.25rem">
+    <div class="card"><h4>Worker</h4><p>Cada 5 minutos descarga las tres fuentes en paralelo, deduplica, lee el artículo original para darle contexto a Gemini, enriquece lo nuevo (titular traducido, descripción, temas, nota global) y rehace los resúmenes del día si toca.</p></div>
+    <div class="card"><h4>API</h4><p>FastAPI asíncrona. Sirve los feeds, el árbol de comentarios de HN (descargado y traducido bajo demanda), los resúmenes y las métricas, y registra votos y eventos de una sesión anónima por navegador.</p></div>
+    <div class="card"><h4>Frontend</h4><p>React + TypeScript. Bilingüe, modo claro y oscuro, actualización cada minuto, animaciones con Motion y estado del lector (leídas, votos) en <code>localStorage</code> para sembrar el futuro «Para ti».</p></div>
+    <div class="card"><h4>Dos Caddy</h4><p>El <b>edge</b> es el único con puertos públicos y gestiona HTTPS para todos los dominios del servidor. El de MyNews solo habla HTTP dentro de Docker: sirve el frontend y reenvía <code>/api</code>.</p></div>
+  </div>
+</section>
+
+<!-- ───────────────────────────── PDF → REALIDAD ───────────────────────────── -->
+<section id="pdf">
+  <h2>Del PDF a la realidad</h2>
+  <p class="sub">Cada preocupación de la especificación inicial y cómo se ha resuelto.</p>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Concepto del PDF</th><th>Cómo está aplicado</th><th>Estado</th></tr></thead>
+    <tbody>
+      <tr><td>Agregación multi-fuente</td><td>Reuters por su sitemap (sección real en la URL), Ars por RSS (AI, Biz &amp; IT, Security), HN por <code>/front</code> en su mismo orden.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Ingesta idempotente</td><td>Upsert por <code>(source, external_id)</code>: repetir una ingesta no duplica nada y actualiza puntos, titular y hora.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Deduplicación</td><td>URL normalizada (sin tracking, www, barra final) y similitud de titulares.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Comentarios HN como árbol</td><td>Una fila por comentario con padre, profundidad y posición; árbol reconstruido con CTE recursiva; marca de borrados.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Cliente de IA intercambiable</td><td>Interfaz <code>AIClient</code> (generar, JSON validado con Pydantic, embeddings) con implementación Gemini.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Cuotas del free tier</td><td>Limitador por modelo con cola de prioridades, reintentos exponenciales ante 429/503, Flash → Flash-Lite con enfriamiento de 1 h.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Etapa 0: enriquecimiento global</td><td>Una vez por artículo y en lotes: titular traducido, descripción EN/ES, temas, nota de relevancia.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>«Lo importante hoy»</td><td>Ranking por nota global con equilibrio de fuentes.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Briefing diario</td><td>Versión de un solo prompt: tres resúmenes (general, mundo, tecnología) con viñetas. El agente con herramientas está pendiente.</td><td><span class="chip part">parcial</span></td></tr>
+      <tr><td>Eventos y feedback</td><td>Impresiones, clics, votos y leídas; votos en <code>localStorage</code> y en la tabla <code>events</code>.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Embeddings y búsqueda semántica</td><td>Tabla e índice HNSW de pgvector creados; aún sin calcular.</td><td><span class="chip todo">pendiente</span></td></tr>
+      <tr><td>Feed «Para ti»</td><td>Las señales ya se recogen; falta el pipeline de candidatos, puntuación y re-ranking.</td><td><span class="chip todo">pendiente</span></td></tr>
+      <tr><td>Evals, A/B, MCP</td><td>Fuera del alcance actual.</td><td><span class="chip todo">pendiente</span></td></tr>
+      <tr><td>Docker, Caddy, HTTPS, CI/CD</td><td>Compose en el VPS tras un proxy común con TLS automático; CI y despliegue continuo en GitHub Actions.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Seguridad</td><td>Base de datos sin exponer, secretos fuera del repo, despliegue solo desde <code>main</code>, sesión con cookie HttpOnly y hash del token.</td><td><span class="chip ok">hecho</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ───────────────────────────── CÓDIGO ───────────────────────────── -->
+<section id="codigo">
+  <h2>Código clave</h2>
+  <p class="sub">Los fragmentos que mejor explican cómo funciona cada pieza.</p>
+  <div class="tabs" data-tabs>
+    <div class="tablist" role="tablist" aria-label="Fragmentos de código">
+      <button role="tab" aria-selected="true" aria-controls="t1" id="b1">Upsert idempotente</button>
+      <button role="tab" aria-selected="false" aria-controls="t2" id="b2">Árbol de comentarios</button>
+      <button role="tab" aria-selected="false" aria-controls="t3" id="b3">Limitador</button>
+      <button role="tab" aria-selected="false" aria-controls="t4" id="b4">Salida estructurada</button>
+      <button role="tab" aria-selected="false" aria-controls="t5" id="b5">Resumen con respaldo</button>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="t1" aria-labelledby="b1">
+<pre><code class="language-python"># backend/app/ingest/service.py
+stmt = insert(Article).values(**values)
+update_cols = {c: stmt.excluded[c] for c in UPDATABLE}   # titular, sección, hora, puntos…
+article_id = (await session.execute(
+    stmt.on_conflict_do_update(constraint="uq_articles_source_external_id", set_=update_cols)
+    .returning(Article.id)
+)).scalar_one()</code></pre>
+      <p class="note">Una restricción única en <code>(source, external_id)</code> convierte cada inserción en «insertar o actualizar»: la ingesta puede repetirse cada 5 minutos sin duplicar.</p>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="t2" aria-labelledby="b2" hidden>
+<pre><code class="language-sql">-- backend/app/api/routes.py
+WITH RECURSIVE tree AS (
+    SELECT id, author, text, text_es, created_at, depth, ARRAY[sibling_rank] AS path
+    FROM hn_comments WHERE story_id = :story AND parent_id = :story AND NOT deleted
+    UNION ALL
+    SELECT c.id, c.author, c.text, c.text_es, c.created_at, c.depth, t.path || c.sibling_rank
+    FROM hn_comments c JOIN tree t ON c.parent_id = t.id WHERE NOT c.deleted
+)
+SELECT id, author, text, text_es, created_at, depth FROM tree ORDER BY path</code></pre>
+      <p class="note">Los comentarios se guardan planos y la consulta recursiva los devuelve en orden de lectura; el frontend reconstruye el árbol con una pila.</p>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="t3" aria-labelledby="b3" hidden>
+<pre><code class="language-python"># backend/app/ai/limiter.py — token bucket + contador diario + cola de prioridades
+async def acquire(self, priority: Priority = Priority.ENRICHMENT) -> None:
+    self._roll_day()                      # el día se reinicia a medianoche del Pacífico
+    if 0 &lt; self.rpd &lt;= self._used_today:
+        raise QuotaExhausted("daily quota exhausted")
+    if self.rpm &lt;= 0:                     # sin límite configurado: sin cola
+        self._used_today += 1
+        return
+    fut = asyncio.get_running_loop().create_future()
+    heapq.heappush(self._waiters, (int(priority), next(self._seq), fut))   # «Para ti» antes que el briefing
+    ...</code></pre>
+      <p class="note">Cada modelo tiene su limitador. Si la cuota se agota, el llamador degrada en lugar de romper.</p>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="t4" aria-labelledby="b4" hidden>
+<pre><code class="language-python"># backend/app/enrich/stage0.py — Gemini responde en JSON validado por Pydantic
+class EnrichedItem(BaseModel):
+    id: int
+    title_es: str = Field(max_length=400)
+    summary_en: str = Field(default="", max_length=400)
+    summary_es: str = Field(default="", max_length=450)
+    topics: list[str] = Field(max_length=4)
+    global_score: float = Field(ge=0, le=1)
+
+result = await ai.generate_json(prompt, EnrichmentBatch, model=cfg.gemini_model_lite,
+                                task="enrich", priority=Priority.ENRICHMENT, system=SYSTEM)</code></pre>
+      <p class="note">El esquema viaja a Gemini como <code>responseJsonSchema</code> y la respuesta se valida: una salida mal formada nunca llega a la base de datos.</p>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="t5" aria-labelledby="b5" hidden>
+<pre><code class="language-python"># backend/app/enrich/digest.py — calidad primero, disponibilidad siempre
+models = [cfg.gemini_model_flash, cfg.gemini_model_lite]
+if now &lt; _flash_paused_until:            # tras un 429 de Flash, una hora directo a Lite
+    models = [cfg.gemini_model_lite]
+for model in models:
+    try:
+        out = await ai.generate_json(build_prompt(stories, kind), DigestOut, model=model, ...)
+        break
+    except (AIError, QuotaExhausted) as exc:
+        if model == cfg.gemini_model_flash and "429" in str(exc):
+            _flash_paused_until = now + FLASH_COOLDOWN</code></pre>
+      <p class="note">Los tres resúmenes solo se rehacen si cambian las noticias principales (y han pasado 30 min) o cada 3 horas.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────────── CI/CD ───────────────────────────── -->
+<section id="cicd">
+  <h2>CI/CD</h2>
+  <p class="sub">Un push a <code>main</code> pasa por el CI y, si sale en verde, se publica y se despliega sin intervención.</p>
+  <div class="figure">
+    <svg id="pipeline" viewBox="0 0 1120 300" role="img" aria-labelledby="pl-title">
+      <title id="pl-title">Pipeline: push, CI con tres jobs en paralelo, publicación de imágenes, despliegue y comprobación de salud</title>
+      <path id="p-a" class="edge" d="M150 150 C 190 150, 200 70, 240 70"/>
+      <path id="p-b" class="edge" d="M150 150 L 240 150"/>
+      <path id="p-c" class="edge" d="M150 150 C 190 150, 200 230, 240 230"/>
+      <path id="p-d" class="edge" d="M440 70 C 480 70, 490 150, 530 150"/>
+      <path id="p-e" class="edge" d="M440 150 L 530 150"/>
+      <path id="p-f" class="edge" d="M440 230 C 480 230, 490 150, 530 150"/>
+      <path id="p-g" class="edge" d="M710 150 L 760 150"/>
+      <path id="p-h" class="edge" d="M940 150 L 980 150"/>
+      <g class="stage" data-step="0" transform="translate(20 115)"><g class="inner"><rect width="130" height="70" rx="10"/><text class="t" x="14" y="30">git push main</text><text class="s" x="14" y="50">o PR (solo CI)</text></g></g>
+      <g class="stage" data-step="1" transform="translate(240 40)"><g class="inner"><rect width="200" height="60" rx="10"/><text class="t" x="14" y="26">Backend</text><text class="s" x="14" y="44">ruff · pytest + pgvector · migraciones</text></g></g>
+      <g class="stage" data-step="1" transform="translate(240 120)"><g class="inner"><rect width="200" height="60" rx="10"/><text class="t" x="14" y="26">Frontend</text><text class="s" x="14" y="44">tsc · vitest · vite build</text></g></g>
+      <g class="stage" data-step="1" transform="translate(240 200)"><g class="inner"><rect width="200" height="60" rx="10"/><text class="t" x="14" y="26">Imágenes Docker</text><text class="s" x="14" y="44">backend y frontend (buildx)</text></g></g>
+      <g class="stage" data-step="2" transform="translate(530 110)"><g class="inner"><rect width="180" height="80" rx="10"/><text class="t" x="14" y="28">Publicar en GHCR</text><text class="s" x="14" y="48">etiqueta = SHA del commit</text><text class="s" x="14" y="64">y latest</text></g></g>
+      <g class="stage" data-step="3" transform="translate(760 110)"><g class="inner"><rect width="180" height="80" rx="10"/><text class="t" x="14" y="28">Desplegar por SSH</text><text class="s" x="14" y="48">pull + up -d</text><text class="s" x="14" y="64">migraciones al arrancar</text></g></g>
+      <g class="stage" data-step="4" transform="translate(980 115)"><g class="inner"><rect width="120" height="70" rx="10"/><text class="t" x="14" y="30">/api/health</text><text class="s" x="14" y="50">200 = éxito</text></g></g>
+      <text class="elabel" x="270" y="24">CI · en paralelo</text>
+      <text class="elabel" x="560" y="96">Deploy · solo push a main</text>
+      <text class="blocked" x="20" y="285">✕ PR desde un fork: el CI espera tu aprobación y nunca dispara el despliegue</text>
+    </svg>
+  </div>
+
+  <h3>CI: <code>.github/workflows/ci.yml</code></h3>
+  <ol class="steps">
+    <li><b>Backend:</b> lint con ruff, tests con PostgreSQL + pgvector reales como servicio, y las migraciones aplicadas desde cero con <code>alembic check</code> para detectar deriva entre modelos y esquema.</li>
+    <li><b>Frontend:</b> <code>npm ci</code>, tipos con <code>tsc</code>, tests con Vitest y build de producción.</li>
+    <li><b>Imágenes:</b> construye las dos imágenes Docker con caché de GitHub para asegurar que el despliegue podrá hacerse.</li>
+    <li><b>Eficiencia:</b> permisos de solo lectura, cancela ejecuciones obsoletas de la misma rama y no se ejecuta si solo cambian documentos.</li>
+  </ol>
+
+  <h3>CD: <code>.github/workflows/deploy.yml</code></h3>
+  <div class="grid2">
+<pre><code class="language-yaml"># Solo un CI en verde de un push a main de este repositorio
+if: >-
+  github.event_name == 'workflow_dispatch' || (
+    github.event.workflow_run.conclusion == 'success' &amp;&amp;
+    github.event.workflow_run.event == 'push' &amp;&amp;
+    github.event.workflow_run.head_branch == 'main' &amp;&amp;
+    github.event.workflow_run.head_repository.full_name == github.repository
+  )</code></pre>
+<pre><code class="language-bash"># En el servidor: credenciales de GHCR solo durante el pull
+echo "$REGISTRY_TOKEN" | ssh -i ~/.ssh/id_deploy "$TARGET" \
+  "docker login ghcr.io -u $ACTOR --password-stdin &amp;&amp; \
+   cd $DEPLOY_PATH &amp;&amp; export IMAGE_TAG=$TAG &amp;&amp; \
+   docker compose -f infra/docker-compose.prod.yml pull api worker web; \
+   docker logout ghcr.io; \
+   docker compose -f infra/docker-compose.prod.yml up -d --no-build"</code></pre>
+  </div>
+  <div class="callout"><b>Por qué esas cuatro condiciones.</b> <code>workflow_run</code> se ejecuta con los secretos del repositorio incluso cuando el CI lo disparó una pull request de un fork, cuya rama puede llamarse <code>main</code>. Exigir <code>event == 'push'</code> y que el repositorio de origen sea este impide desplegar código ajeno.</div>
+  <div class="grid2">
+    <div class="card"><h4>Secretos y acceso</h4><p>Clave SSH exclusiva de despliegue y huella del servidor en el environment <code>production</code>; el token de GHCR caduca al acabar el job.</p></div>
+    <div class="card"><h4>Vuelta atrás</h4><p>«Run workflow» con el SHA anterior: las imágenes están etiquetadas por commit.</p></div>
+    <div class="card"><h4>Repositorio protegido</h4><p>Sin force-push ni borrado en <code>main</code>, escaneo de secretos con bloqueo en el push y aprobación obligatoria para workflows de externos.</p></div>
+    <div class="card"><h4>Dependencias</h4><p>Dependabot mensual y agrupado: como mucho una PR por ecosistema, siempre validada por el CI.</p></div>
+  </div>
+</section>
+
+<!-- ───────────────────────────── DOMINIO ───────────────────────────── -->
+<section id="dominio">
+  <h2>Dominio y páginas</h2>
+  <p class="sub">janguzman.com está en Namecheap; tres registros A apuntan al VPS y el proxy común decide qué sirve cada nombre.</p>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Nombre</th><th>Registro DNS</th><th>Qué sirve</th></tr></thead>
+    <tbody>
+      <tr><td>news.janguzman.com</td><td>A → VPS</td><td>MyNews, con certificado de Let's Encrypt emitido y renovado por el edge.</td></tr>
+      <tr><td>janguzman.com</td><td>A → VPS</td><td>Aún sin sitio en el proxy: pendiente de configurar.</td></tr>
+      <tr><td>www.janguzman.com</td><td>A → VPS</td><td>Igual que el dominio raíz.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h3>Páginas y rutas de news.janguzman.com</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Ruta</th><th>Qué es</th></tr></thead>
+    <tbody>
+      <tr><td><a href="https://news.janguzman.com/">/</a></td><td>La web: portada, «Lo importante hoy», «Última hora», panel de discusión y diálogo de fuentes.</td></tr>
+      <tr><td><a href="https://news.janguzman.com/api/health">/api/health</a></td><td>Salud de la API y la base de datos (la usa el CD).</td></tr>
+      <tr><td><a href="https://news.janguzman.com/api/feed/important">/api/feed/important</a></td><td>Las cinco noticias de mayor relevancia global.</td></tr>
+      <tr><td><a href="https://news.janguzman.com/api/feed/latest?source=hn">/api/feed/latest</a></td><td>Cronología con filtros <code>source</code>, <code>section</code>, <code>before</code> y <code>offset</code>.</td></tr>
+      <tr><td><a href="https://news.janguzman.com/api/digest">/api/digest</a></td><td>Los tres resúmenes del día con sus viñetas.</td></tr>
+      <tr><td>/api/articles/{id}/comments</td><td>Árbol de comentarios de HN, <code>?lang=es</code> para traducirlo.</td></tr>
+      <tr><td>/api/session · /api/events · …/feedback</td><td>Sesión anónima por cookie, eventos de lectura y votos.</td></tr>
+      <tr><td><a href="https://news.janguzman.com/api/metrics">/api/metrics</a></td><td>Volumen ingerido y uso de Gemini en las últimas 24 h.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ───────────────────────────── CADDY EN EL VPS ───────────────────────────── -->
+<section id="vps">
+  <h2>Caddy en un VPS compartido</h2>
+  <p class="sub">El servidor ya alojaba otros proyectos y uno de ellos tenía su propio Caddy ocupando los puertos 80 y 443. MyNews no podía levantar otro.</p>
+  <div class="toggle" role="group" aria-label="Estado del servidor">
+    <button aria-pressed="false" data-state="before">Antes</button>
+    <button aria-pressed="true" data-state="after">Después</button>
+  </div>
+  <div class="figure">
+    <svg id="vps-svg" viewBox="0 0 1000 300" role="img" aria-labelledby="vps-title">
+      <title id="vps-title">Antes, el Caddy de un proyecto previo ocupaba los puertos públicos. Después, un proxy común con TLS reparte el tráfico por la red interna edge.</title>
+      <g class="node ext" transform="translate(20 115)"><g class="inner"><rect width="110" height="70" rx="10"/><text class="t" x="14" y="32">Internet</text><text class="s" x="14" y="50">:80 · :443</text></g></g>
+      <!-- before -->
+      <g id="before" opacity="0">
+        <path class="edge" d="M130 150 L 260 150"/>
+        <g class="node" transform="translate(260 100)"><g class="inner"><rect width="230" height="100" rx="10"/><text class="t" x="14" y="28">Caddy de un proyecto previo</text><text class="s" x="14" y="48">dueño de :80 y :443 y de sus certificados</text><text class="s" x="14" y="66">sirve solo su propia web</text></g></g>
+        <path class="edge" d="M490 150 L 560 150"/>
+        <g class="node" transform="translate(560 115)"><g class="inner"><rect width="150" height="70" rx="10"/><text class="t" x="14" y="32">Proyecto previo</text><text class="s" x="14" y="50">su app</text></g></g>
+        <g class="node ext" transform="translate(760 115)"><g class="inner"><rect width="200" height="70" rx="10"/><text class="t" x="14" y="32">MyNews</text><text class="blocked" x="14" y="52">✕ no puede usar :80/:443</text></g></g>
+      </g>
+      <!-- after -->
+      <g id="after">
+        <path class="edge" d="M130 150 L 250 150"/>
+        <g class="node accent" transform="translate(250 95)"><g class="inner"><rect width="200" height="110" rx="10"/><text class="t" x="14" y="28">Edge · Caddy común</text><text class="s" x="14" y="48">único con :80 y :443</text><text class="s" x="14" y="64">TLS de todos los dominios</text><text class="s" x="14" y="80">certificados reutilizados</text></g></g>
+        <g class="zone"><rect x="500" y="40" width="470" height="220" rx="14"/><text x="516" y="62">red Docker «edge» · solo HTTP interno</text></g>
+        <path class="edge" d="M450 140 C 500 140, 510 110, 560 110"/>
+        <path class="edge" d="M450 165 C 500 165, 510 195, 560 195"/>
+        <g class="node" transform="translate(560 78)"><g class="inner"><rect width="380" height="64" rx="10"/><text class="t" x="14" y="26">Proyecto previo · alias interno</text><text class="s" x="14" y="44">su Caddy ya sin puertos públicos; confía en el edge para la IP real</text></g></g>
+        <g class="node accent" transform="translate(560 162)"><g class="inner"><rect width="380" height="64" rx="10"/><text class="t" x="14" y="26">MyNews · mynews-web</text><text class="s" x="14" y="44">Caddy en :80 → frontend + /api (sin puertos publicados)</text></g></g>
+      </g>
+    </svg>
+  </div>
+  <div class="grid2" style="margin-top:1rem">
+<pre><code class="language-caddyfile"># ~/edge/Caddyfile — un bloque por sitio
+otro-proyecto.example, www.otro-proyecto.example {
+	reverse_proxy otro-proyecto-web:80
+}
+
+news.janguzman.com {
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy mynews-web:80 {
+		lb_try_duration 8s
+	}
+}</code></pre>
+<pre><code class="language-yaml"># infra/docker-compose.prod.yml — MyNews no publica puertos
+web:
+  image: ghcr.io/imhauke/my-news-frontend:${IMAGE_TAG:-latest}
+  networks:
+    default:
+    edge:
+      aliases: [mynews-web]
+
+networks:
+  edge:
+    external: true</code></pre>
+  </div>
+  <ol class="steps" style="margin-top:1rem">
+    <li><b>Proxy común:</b> un Caddy nuevo en su propia carpeta, dueño de los puertos públicos y de HTTPS para todos los dominios.</li>
+    <li><b>Certificados:</b> se copiaron los existentes al volumen del edge, así que no hubo que volver a emitirlos.</li>
+    <li><b>Proyecto previo:</b> su Caddy pasó a HTTP interno, con las mismas cabeceras de seguridad y rutas, y con <code>trusted_proxies</code> para seguir viendo la IP real del visitante. Se comprobó que una IP falsificada se ignora.</li>
+    <li><b>Corte:</b> unos 3 segundos sin servicio, con vuelta atrás automática preparada si la web no respondía.</li>
+    <li><b>MyNews:</b> se une a la red <code>edge</code> con el alias <code>mynews-web</code>; añadir otro proyecto es un bloque más en el Caddyfile del edge.</li>
+  </ol>
+</section>
+
+<!-- ───────────────────────────── PENDIENTE ───────────────────────────── -->
+<section id="pendiente">
+  <h2>Lo que falta</h2>
+  <div class="grid2">
+    <div class="card"><h4>Embeddings y búsqueda semántica</h4><p>Calcular el vector de cada noticia con Gemini Embedding; con ellos la búsqueda por significado sale casi gratis.</p></div>
+    <div class="card"><h4>Feed «Para ti»</h4><p>Vectores de interés por lector, candidatos, puntuación con pgvector, re-ranking con Gemini con motivo, diversidad y exploración. Las señales ya se recogen.</p></div>
+    <div class="card"><h4>Evals y experimentos</h4><p>Set etiquetado a mano, métricas de ranking en el CI y A/B o interleaving entre variantes.</p></div>
+    <div class="card"><h4>Agentes</h4><p>El briefing con herramientas y trazas, y el servidor MCP para consultar las noticias desde Claude.</p></div>
+  </div>
+</section>
+
+<footer class="end">MyNews · documento interno de arquitectura</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/animejs@4.5.0/dist/bundles/anime.umd.min.js"></script>
+<script>
+  // Syntax highlighting (Caddyfile has no grammar: shown as plain text).
+  document.querySelectorAll("pre code").forEach((el) => {
+    if (el.classList.contains("language-caddyfile")) el.classList.add("hljs");
+    else window.hljs && hljs.highlightElement(el);
+  });
+
+  // Tabs for the code samples.
+  document.querySelectorAll("[data-tabs]").forEach((tabs) => {
+    const buttons = [...tabs.querySelectorAll('[role="tab"]')];
+    buttons.forEach((btn) => btn.addEventListener("click", () => {
+      buttons.forEach((b) => {
+        const on = b === btn;
+        b.setAttribute("aria-selected", on);
+        document.getElementById(b.getAttribute("aria-controls")).hidden = !on;
+      });
+      const panel = document.getElementById(btn.getAttribute("aria-controls"));
+      if (window.anime && !reduce) anime.animate(panel, { opacity: [0, 1], translateY: [6, 0], duration: 320, ease: "outQuad" });
+    }));
+  });
+
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const A = window.anime;
+
+  // Runs a setup once, the first time an element scrolls into view.
+  function whenVisible(el, run) {
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) { io.disconnect(); run(); }
+    }, { threshold: 0.25 });
+    io.observe(el);
+  }
+
+  if (A && !reduce) {
+    const { animate, createTimeline, stagger, svg } = A;
+
+    // ── Architecture: zones fade in, nodes pop in, edges draw, then data flows. ──
+    const arch = document.getElementById("arch");
+    arch.querySelectorAll("[data-anim], .elabel, .packet").forEach((el) => (el.style.opacity = 0));
+    whenVisible(arch, () => {
+      const tl = createTimeline({ defaults: { ease: "outExpo" } });
+      tl.add(arch.querySelectorAll('[data-anim="zone"]'), { opacity: [0, 1], duration: 600, delay: stagger(120) })
+        .add(arch.querySelectorAll('[data-anim="node"]'), { opacity: [0, 1], duration: 500, delay: stagger(70) }, "-=300")
+        .add(arch.querySelectorAll('[data-anim="node"] .inner'), { scale: [0.85, 1], duration: 700, delay: stagger(70) }, "<<")
+        .add(svg.createDrawable(arch.querySelectorAll(".edge")), { draw: ["0 0", "0 1"], duration: 900, delay: stagger(60), ease: "inOutQuad" }, "-=500")
+        .add(arch.querySelectorAll(".elabel"), { opacity: [0, 1], duration: 500, delay: stagger(40) }, "-=300")
+        .call(() => {
+          arch.querySelectorAll(".packet").forEach((dot, i) => {
+            dot.style.opacity = 1;
+            animate(dot, {
+              ...svg.createMotionPath(dot.dataset.path),
+              duration: dot.classList.contains("ai") ? 3200 : 1900,
+              delay: (i % 5) * 380,
+              loop: true,
+              ease: "inOutSine",
+            });
+          });
+        });
+    });
+
+    // ── Pipeline: edges draw, stages light up in order, on a loop. ──
+    const pipe = document.getElementById("pipeline");
+    whenVisible(pipe, () => {
+      animate(svg.createDrawable(pipe.querySelectorAll(".edge")), { draw: ["0 0", "0 1"], duration: 900, delay: stagger(80), ease: "inOutQuad" });
+      const stages = [...pipe.querySelectorAll(".stage")];
+      animate(stages, { opacity: [0, 1], duration: 500, delay: stagger(90), ease: "outQuad" });
+      animate(stages.map((s) => s.querySelector(".inner")), { translateY: [8, 0], duration: 600, delay: stagger(90), ease: "outExpo" });
+      const steps = [0, 1, 2, 3, 4];
+      let i = 0;
+      const tick = () => {
+        stages.forEach((s) => s.classList.toggle("on", Number(s.dataset.step) <= steps[i]));
+        const lit = stages.filter((s) => Number(s.dataset.step) === steps[i]);
+        animate(lit.map((s) => s.querySelector("rect")), { scale: [1, 1.04, 1], duration: 500, ease: "outQuad" });
+        i = (i + 1) % (steps.length + 1);
+        if (i === 0) stages.forEach((s) => s.classList.remove("on"));
+      };
+      setTimeout(() => { tick(); setInterval(tick, 900); }, 1100);
+    });
+  }
+
+  // ── VPS before/after toggle. ──
+  const before = document.getElementById("before");
+  const after = document.getElementById("after");
+  document.querySelectorAll(".toggle button").forEach((btn) => btn.addEventListener("click", () => {
+    document.querySelectorAll(".toggle button").forEach((b) => b.setAttribute("aria-pressed", b === btn));
+    const show = btn.dataset.state === "before" ? before : after;
+    const hide = show === before ? after : before;
+    if (A && !reduce) {
+      A.animate(hide, { opacity: 0, duration: 250, ease: "outQuad" });
+      A.animate(show, { opacity: [0, 1], duration: 450, delay: 150, ease: "outExpo" });
+      A.animate(show.querySelectorAll(".node .inner"), { opacity: [0, 1], translateY: [10, 0], duration: 550, delay: A.stagger(80, { start: 200 }), ease: "outExpo" });
+    } else {
+      hide.setAttribute("opacity", 0); show.setAttribute("opacity", 1);
+    }
+  }));
+</script>
+</body>
+</html>

@@ -170,3 +170,14 @@ async def test_digest_endpoint_returns_latest_of_each_kind(session, client):
     body = (await client.get("/digest")).json()
     assert body["general"]["text_es"] == "nuevo" and body["tech"]["text_en"] == "chips"
     assert body["world"] is None
+
+
+async def test_docs_can_be_turned_off():
+    from app.config import Settings
+    from app.main import create_app
+
+    for enabled, expected in ((True, 200), (False, 404)):
+        app_ = create_app(Settings(api_docs=enabled))
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app_), base_url="http://t") as c:
+            for path in ("/docs", "/redoc", "/openapi.json"):
+                assert (await c.get(path)).status_code == expected, (enabled, path)
