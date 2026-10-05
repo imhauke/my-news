@@ -1,12 +1,13 @@
-"""One anonymous user per browser (HttpOnly cookie). Enough to keep each reader's ratings apart;
-sign-up with email arrives with the For You feed (phase 3)."""
+"""One anonymous user per browser (HttpOnly cookie), created only once the reader has agreed to
+personalisation. Enough to keep each reader's ratings apart; sign-up with email arrives with the
+For You feed (phase 3)."""
 
 import hashlib
 import secrets
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request, Response
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -50,3 +51,12 @@ async def ensure_session(
         COOKIE, token, max_age=ONE_YEAR, httponly=True, samesite="lax", secure=get_settings().cookie_secure
     )
     return user
+
+
+async def forget(response: Response, session: AsyncSession, user: User | None) -> None:
+    """Deletes the cookie's user with everything linked to it (ratings, events and interests go with
+    it through ON DELETE CASCADE) and clears the cookie."""
+    if user is not None:
+        await session.execute(delete(User).where(User.id == user.id))
+        await session.commit()
+    response.delete_cookie(COOKIE, httponly=True, samesite="lax", secure=get_settings().cookie_secure)

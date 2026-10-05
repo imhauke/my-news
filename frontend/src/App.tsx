@@ -1,6 +1,8 @@
 import { MotionConfig } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 import { PAGE_SIZE, ensureSession, fetchDigests, fetchImportant, fetchLatest, fetchMetrics } from "./api";
+import { getConsent } from "./consent";
+import { ConsentNote } from "./ConsentNote";
 import { DiscussionPanel } from "./DiscussionPanel";
 import { Footer } from "./Footer";
 import { DiscussionProvider } from "./discussion";
@@ -66,8 +68,10 @@ export default function App() {
     else document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  // The anonymous session comes first, so the feeds already include this browser's ratings.
+  // With consent, the anonymous session comes first, so the feeds already include this browser's
+  // ratings. Without it no session is created at all.
   useEffect(() => {
+    if (getConsent() !== "granted") return setSessionReady(true);
     ensureSession().catch(() => undefined).finally(() => setSessionReady(true));
   }, []);
 
@@ -157,6 +161,7 @@ export default function App() {
         </main>
         <Footer metrics={metrics} />
         <DiscussionPanel />
+        <ConsentNote />
       </div>
     </DiscussionProvider>
     </LangContext.Provider>

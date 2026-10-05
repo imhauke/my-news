@@ -36,7 +36,53 @@ const es = {
   dateline: (total: string, enriched: string) =>
     `${total} noticias de Reuters, Ars Technica y Hacker News; Gemini ha resumido y traducido ${enriched}.`,
   digestKinds: { general: "General", world: "Mundo", tech: "Tecnología" },
-  digestGroup: "Tipo de resumen",
+  digestGroup: "Enfoque del resumen",
+  digestTitle: "En resumen",
+  digestNote: "lo esencial de las noticias de abajo",
+  privacyLink: "Privacidad",
+  consent: {
+    kicker: "Nota al lector",
+    text: "¿Dejas que MyNews aprenda de lo que lees y valoras para preparar tu feed «Para ti»? Se guarda con un identificador anónimo, sin nombre ni correo, y nunca se comparte.",
+    accept: "Sí, personalizar",
+    decline: "Ahora no",
+    more: "Cómo funciona",
+  },
+  privacy: {
+    title: "Privacidad",
+    intro: "MyNews no tiene cuentas ni publicidad. Esto es todo lo que guarda y por qué.",
+    sections: [
+      {
+        heading: "En tu dispositivo",
+        text: "El idioma, el tema, las noticias que has abierto y tus valoraciones se guardan en el almacenamiento de este navegador para que la página siga como la dejaste. No salen de él salvo que actives la personalización, y se borran al limpiar los datos del sitio.",
+      },
+      {
+        heading: "Si activas la personalización",
+        text: "Se crea un identificador anónimo, guardado en una cookie técnica (mn_session, válida un año). Con él, el servidor de MyNews registra qué noticias ves, abres y valoras, para aprender tus intereses y ordenar tu feed «Para ti». No pide nombre ni correo, no guarda tu dirección IP y los datos no se venden, no se comparten ni se usan para publicidad. La base legal es tu consentimiento.",
+      },
+      {
+        heading: "Si no la activas",
+        text: "No se crea ninguna cookie. Solo se cuentan de forma anónima, sin identificador, las noticias que aparecen y se abren, para saber qué funciona en la portada.",
+      },
+      {
+        heading: "Cuánto tiempo",
+        text: "El historial ligado a tu identificador se borra a los 12 meses, o al momento si retiras el consentimiento.",
+      },
+      {
+        heading: "Terceros",
+        text: "Las fotos se cargan desde los servidores de cada fuente (como Reuters o Ars Technica), que reciben tu dirección IP como en cualquier visita a su web. Gemini, de Google, solo procesa el texto de las noticias y de los comentarios, nunca datos sobre ti.",
+      },
+      {
+        heading: "Tus derechos",
+        text: "Puedes activar o retirar el consentimiento cuando quieras aquí abajo; al retirarlo se borra todo lo asociado a tu identificador. Para cualquier otra petición sobre tus datos escribe al responsable. También puedes reclamar ante la Agencia Española de Protección de Datos (aepd.es).",
+      },
+    ],
+    controller: "Responsable",
+    contact: "contacto",
+    statusOn: "La personalización está activada.",
+    statusOff: "La personalización está desactivada.",
+    enable: "Activar personalización",
+    disable: "Desactivar y borrar mis datos",
+  },
   important: "Lo importante hoy",
   latest: "Última hora",
   filterSource: "Filtrar por fuente",
@@ -118,7 +164,53 @@ const en: Dict = {
   dateline: (total, enriched) =>
     `${total} stories from Reuters, Ars Technica and Hacker News; Gemini has summarised and translated ${enriched}.`,
   digestKinds: { general: "General", world: "World", tech: "Technology" },
-  digestGroup: "Overview",
+  digestGroup: "Overview focus",
+  digestTitle: "In brief",
+  digestNote: "the gist of the stories below",
+  privacyLink: "Privacy",
+  consent: {
+    kicker: "Note to readers",
+    text: "Can MyNews learn from what you read and rate to build your For You feed? It is stored under an anonymous ID, with no name or email, and never shared.",
+    accept: "Yes, personalise",
+    decline: "Not now",
+    more: "How it works",
+  },
+  privacy: {
+    title: "Privacy",
+    intro: "MyNews has no accounts and no ads. This is everything it keeps, and why.",
+    sections: [
+      {
+        heading: "On your device",
+        text: "Your language, theme, the stories you have opened and your ratings are kept in this browser's storage so the page stays as you left it. They never leave it unless you turn on personalisation, and clearing the site's data erases them.",
+      },
+      {
+        heading: "If you turn on personalisation",
+        text: "An anonymous ID is created and kept in a technical cookie (mn_session, valid for a year). With it, the MyNews server records which stories you see, open and rate, to learn your interests and order your For You feed. It asks for no name or email, does not store your IP address, and the data is never sold, shared or used for advertising. The legal basis is your consent.",
+      },
+      {
+        heading: "If you don't",
+        text: "No cookie is set. Only anonymous counts, with no identifier, of the stories that are shown and opened are kept, to learn what works on the front page.",
+      },
+      {
+        heading: "How long",
+        text: "History linked to your ID is deleted after 12 months, or straight away if you withdraw your consent.",
+      },
+      {
+        heading: "Third parties",
+        text: "Photos load from each source's servers (such as Reuters or Ars Technica), which see your IP address as on any visit to their site. Google's Gemini only processes the text of stories and comments, never data about you.",
+      },
+      {
+        heading: "Your rights",
+        text: "You can turn your consent on or off at any time below; withdrawing it deletes everything linked to your ID. For any other request about your data, write to the controller. You can also complain to the Spanish Data Protection Agency (aepd.es).",
+      },
+    ],
+    controller: "Controller",
+    contact: "contact",
+    statusOn: "Personalisation is on.",
+    statusOff: "Personalisation is off.",
+    enable: "Turn on personalisation",
+    disable: "Turn off and delete my data",
+  },
   important: "Today's essentials",
   latest: "Latest",
   filterSource: "Filter by source",

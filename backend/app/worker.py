@@ -11,6 +11,7 @@ from app.enrich import jobs as enrich
 from app.enrich.digest import refresh_digest
 from app.ingest import jobs
 from app.logging import configure_logging
+from app.privacy import purge_job
 
 log = structlog.get_logger()
 
@@ -48,6 +49,7 @@ async def main() -> None:
              "next_run_time": datetime.now()}  # first run right away
     scheduler.add_job(refresh, id="refresh", **every)
     scheduler.add_job(jobs.refresh_hn_comments, id="hn_comments", **every)
+    scheduler.add_job(purge_job, "interval", id="privacy_purge", hours=24, next_run_time=datetime.now())
     scheduler.start()
     log.info("worker_started", refresh_minutes=cfg.refresh_minutes)
     await asyncio.Event().wait()

@@ -55,22 +55,26 @@ export function Masthead({ metrics, digests, digestKind, onDigestKind, onLang, t
       </div>
       <div className="dateline">
         <time>{todayLine(lang)}</time>
-        {available.length > 1 && (
-          <SegmentedControl
-            id="digest"
-            size="small"
-            label={t.digestGroup}
-            value={kind}
-            onChange={onDigestKind}
-            segments={available.map((k) => ({ value: k, label: t.digestKinds[k] }))}
-          />
-        )}
         {!current && metrics && metrics.articles_total > 0 && (
           <span>{t.dateline(formatNumber(metrics.articles_total, lang), formatNumber(metrics.articles_enriched, lang))}</span>
         )}
       </div>
       {current && (
         <div className="digest">
+          {/* The selector only changes the focus of this summary, never the stories below. */}
+          <div className="digest-head">
+            <p className="digest-kicker"><strong>{t.digestTitle}</strong> · {t.digestNote}</p>
+            {available.length > 1 && (
+              <SegmentedControl
+                id="digest"
+                size="small"
+                label={t.digestGroup}
+                value={kind}
+                onChange={onDigestKind}
+                segments={available.map((k) => ({ value: k, label: t.digestKinds[k] }))}
+              />
+            )}
+          </div>
           {/* All overviews share one cell: it takes the height of the longest, so switching
               between them cross-fades without moving anything below. */}
           <div className="digest-stack">

@@ -1,5 +1,6 @@
 import { ExternalLink, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { setConsent, setPrivacyOpen, useConsent, usePrivacyOpen } from "./consent";
 import { formatNumber } from "./format";
 import { useLang, useT } from "./i18n";
 import type { Metrics } from "./types";
@@ -10,6 +11,10 @@ export const LINKS = {
   linkedin: "https://www.linkedin.com/in/janguzmanperez/",
   site: "https://janguzman.com",
 };
+
+/** Who is responsible for the data, as the privacy notice must say. Without an email the contact
+ *  is the LinkedIn profile. */
+export const CONTROLLER = { name: "Jan Guzmán", email: "" };
 
 function GithubMark() {
   return (
@@ -27,8 +32,10 @@ function LinkedinMark() {
   );
 }
 
-/** Explains where the news comes from and why, in a small scrollable dialog. */
-function SourcesDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+/** A small scrollable dialog with a title, used for the sources and the privacy notice. */
+function InfoDialog({ id, title, open, onClose, children }: {
+  id: string; title: string; open: boolean; onClose: () => void; children: ReactNode;
+}) {
   const ref = useRef<HTMLDialogElement>(null);
   const t = useT();
   useEffect(() => {
@@ -41,30 +48,69 @@ function SourcesDialog({ open, onClose }: { open: boolean; onClose: () => void }
     <dialog
       ref={ref}
       className="sources-dialog"
-      aria-labelledby="sources-title"
+      aria-labelledby={id}
       onClose={onClose}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div className="sources-inner">
         <header className="sources-head">
-          <h2 id="sources-title">{t.sources.title}</h2>
+          <h2 id={id}>{title}</h2>
           <button className="icon-button" onClick={onClose} aria-label={t.close} title={t.close}>
             <X aria-hidden size={18} />
           </button>
         </header>
-        <div className="sources-body">
-          <p className="sources-intro">{t.sources.intro}</p>
-          {t.sources.items.map((s) => (
-            <section key={s.name} className="source-entry" aria-labelledby={`source-${s.name}`}>
-              <h3 id={`source-${s.name}`}>{s.name}</h3>
-              <p className="source-sections">{s.sections}</p>
-              <p>{s.text}</p>
-            </section>
-          ))}
-          <p className="sources-closing">{t.sources.closing}</p>
-        </div>
+        <div className="sources-body">{children}</div>
       </div>
     </dialog>
+  );
+}
+
+/** Explains where the news comes from and why. */
+function SourcesDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const t = useT();
+  return (
+    <InfoDialog id="sources-title" title={t.sources.title} open={open} onClose={onClose}>
+      <p className="sources-intro">{t.sources.intro}</p>
+      {t.sources.items.map((s) => (
+        <section key={s.name} className="source-entry" aria-labelledby={`source-${s.name}`}>
+          <h3 id={`source-${s.name}`}>{s.name}</h3>
+          <p className="source-sections">{s.sections}</p>
+          <p>{s.text}</p>
+        </section>
+      ))}
+      <p className="sources-closing">{t.sources.closing}</p>
+    </InfoDialog>
+  );
+}
+
+/** What MyNews keeps, why and for how long, with the switch to give or withdraw consent. */
+function PrivacyDialog() {
+  const t = useT();
+  const open = usePrivacyOpen();
+  const consent = useConsent();
+  const contact = CONTROLLER.email ? `mailto:${CONTROLLER.email}` : LINKS.linkedin;
+  return (
+    <InfoDialog id="privacy-title" title={t.privacy.title} open={open} onClose={() => setPrivacyOpen(false)}>
+      <p className="sources-intro">{t.privacy.intro}</p>
+      {t.privacy.sections.map((s) => (
+        <section key={s.heading} className="source-entry">
+          <h3>{s.heading}</h3>
+          <p>{s.text}</p>
+        </section>
+      ))}
+      <p className="sources-closing">
+        {t.privacy.controller}: {CONTROLLER.name} ·{" "}
+        <a href={contact} target="_blank" rel="noopener noreferrer">{CONTROLLER.email || t.privacy.contact}</a>
+      </p>
+      <div className="privacy-consent">
+        <p>{consent === "granted" ? t.privacy.statusOn : t.privacy.statusOff}</p>
+        {consent === "granted" ? (
+          <button className="consent-decline" onClick={() => void setConsent("declined")}>{t.privacy.disable}</button>
+        ) : (
+          <button className="consent-accept" onClick={() => void setConsent("granted")}>{t.privacy.enable}</button>
+        )}
+      </div>
+    </InfoDialog>
   );
 }
 
@@ -84,6 +130,9 @@ export function Footer({ metrics }: { metrics: Metrics | null }) {
         <button className="colophon-link" onClick={() => setSourcesOpen(true)} aria-haspopup="dialog">
           {t.ourSources}
         </button>
+        <button className="colophon-link" onClick={() => setPrivacyOpen(true)} aria-haspopup="dialog">
+          {t.privacyLink}
+        </button>
         <a className="colophon-link" href={LINKS.github} target="_blank" rel="noopener noreferrer">
           <GithubMark /> GitHub
         </a>
@@ -97,6 +146,7 @@ export function Footer({ metrics }: { metrics: Metrics | null }) {
         </a>
       </nav>
       <SourcesDialog open={sourcesOpen} onClose={() => setSourcesOpen(false)} />
+      <PrivacyDialog />
     </footer>
   );
 }

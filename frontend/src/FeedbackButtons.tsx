@@ -2,6 +2,7 @@ import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { putFeedback } from "./api";
+import { getConsent } from "./consent";
 import { useT } from "./i18n";
 import { saveVote, useVote } from "./local";
 import { EASE_OUT } from "./motion";
@@ -31,7 +32,7 @@ function Sparks() {
 }
 
 /**
- * Thumbs up / down. The vote is stored in this browser (and sent to the API as an event). The
+ * Thumbs up / down. The vote is stored in this browser (and, with consent, on the server). The
  * chosen thumb pops with a burst of sparks and the other one shrinks away; then the control fades
  * out in place. Its space is kept, also on later visits, so nothing around it ever shifts.
  */
@@ -47,7 +48,8 @@ export function FeedbackButtons({ article }: { article: Article }) {
   function rate(value: Vote) {
     if (celebrating || voted) return;
     saveVote(article, value);
-    putFeedback(article.id, value).catch(() => undefined); // best effort: the local vote is what counts
+    // Sent only with consent (and best effort): the local vote is what counts.
+    if (getConsent() === "granted") putFeedback(article.id, value).catch(() => undefined);
     setCelebrating(value);
     timer.current = setTimeout(() => setCelebrating(null), reduceMotion ? 120 : CELEBRATION_MS);
   }

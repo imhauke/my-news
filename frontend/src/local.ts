@@ -79,6 +79,9 @@ export const useIsRead = (id: number) => useSyncExternalStore(subscribe, () => B
 export const useVote = (id: number): Feedback =>
   useSyncExternalStore(subscribe, (): Feedback => votes[id]?.value ?? 0);
 
+/** Every rating kept in this browser, as [article id, vote]. */
+export const localVotes = () => Object.entries(votes).map(([id, vote]) => [Number(id), vote] as const);
+
 /** For tests: reloads the in-memory copies from localStorage. */
 export function reloadLocalState() {
   read = load<ReadMap>(READ_KEY);

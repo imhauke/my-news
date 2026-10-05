@@ -63,6 +63,12 @@ export function prefetchComments(articleId: number) {
 /** Creates (or, with an existing cookie, returns) this browser's anonymous user. */
 export const ensureSession = () => request<{ user_id: number }>("/session", { method: "POST" });
 
+/** Forgets this browser: deletes its anonymous user and everything linked to it. */
+export const deleteSession = async () => {
+  const res = await fetch(`${BASE}/session`, { method: "DELETE", credentials: "same-origin" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+};
+
 export const putFeedback = (articleId: number, value: Feedback) =>
   request<{ feedback: Feedback }>(`/articles/${articleId}/feedback`, {
     method: "PUT",

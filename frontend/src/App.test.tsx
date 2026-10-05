@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { vi } from "vitest";
 import App, { POLL_MS } from "./App";
+import { resetConsent } from "./consent";
 import { reloadLocalState } from "./local";
 import type { Article } from "./types";
 
@@ -36,7 +37,9 @@ function mockApi(routes: Routes, { failLatest = false } = {}) {
 describe("App", () => {
   beforeEach(() => {
     localStorage.clear();
+    localStorage.setItem("mynews.consent.v1", "declined"); // a returning reader who already chose
     reloadLocalState();
+    resetConsent();
   });
   afterEach(() => vi.restoreAllMocks());
 
@@ -56,9 +59,11 @@ describe("App", () => {
     render(<App />);
     const important = await screen.findByRole("region", { name: "Lo importante hoy" });
     expect(within(important).getByRole("link", { name: "Se reanudan las conversaciones en Ginebra" })).toBeInTheDocument();
-    expect(await screen.findByText("Hoy destaca la segunda vuelta en Brasil.")).toBeVisible();
-    // only overviews that exist are offered; switching shows the other text
-    const kinds = screen.getByRole("group", { name: "Tipo de resumen" });
+    const overview = await screen.findByText("Hoy destaca la segunda vuelta en Brasil.");
+    await waitFor(() => expect(overview).toBeVisible(), { timeout: 2000 }); // once the masthead has entered
+    // it is labelled as a summary of the stories below; only overviews that exist are offered
+    expect(screen.getByText("lo esencial de las noticias de abajo", { exact: false })).toBeInTheDocument();
+    const kinds = screen.getByRole("group", { name: "Enfoque del resumen" });
     expect(within(kinds).queryByRole("button", { name: "Mundo" })).not.toBeInTheDocument();
     fireEvent.click(within(kinds).getByRole("button", { name: "Tecnología" }));
     expect(screen.getByText("En tecnología, Rust 2.0.").closest(".digest-text")).toHaveAttribute("data-active");
@@ -103,13 +108,31 @@ describe("App", () => {
     const calls = mockApi({ "/feed/latest": ranked });
     render(<App />);
     fireEvent.click(within(await screen.findByRole("group", { name: "Filtrar por fuente" })).getByRole("button", { name: "Hacker News" }));
-    expect(await screen.findByRole("heading", { name: "Portada de Hacker News del 4 de octubre" })).toBeInTheDocument();
+    // (the list is remounted when the HN page arrives, so look again until it settles)
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Portada de Hacker News del 4 de octubre" })).toBeInTheDocument());
     expect(screen.getByText("1.")).toBeInTheDocument();
     expect(screen.getByText("2.")).toBeInTheDocument();
     expect(calls.some((c) => c.url.includes("source=hn"))).toBe(true);
   });
 
-  it("stores a vote in this browser, sends it to the API and hides the controls for good", async () => {
+  it("asks first-time readers about personalisation and remembers the answer", async () => {
+    localStorage.removeItem("mynews.consent.v1");
+    resetConsent();
+    mockApi({});
+    const { unmount } = render(<App />);
+    const note = await screen.findByRole("complementary", { name: "Nota al lector" }, { timeout: 3000 });
+    fireEvent.click(within(note).getByRole("button", { name: "Ahora no" }));
+    await waitFor(() => expect(screen.queryByRole("complementary", { name: "Nota al lector" })).not.toBeInTheDocument());
+    expect(localStorage.getItem("mynews.consent.v1")).toBe("declined");
+    unmount();
+    render(<App />); // a later visit: not asked again
+    await new Promise((r) => setTimeout(r, 1500));
+    expect(screen.queryByRole("complementary", { name: "Nota al lector" })).not.toBeInTheDocument();
+  });
+
+  it("stores a vote in this browser and only sends it to the API once the reader agrees", async () => {
+    localStorage.removeItem("mynews.consent.v1");
+    resetConsent();
     const calls = mockApi({ "/feed/latest": [hn] });
     const { unmount } = render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: "Me interesa" }));
@@ -122,7 +145,15 @@ describe("App", () => {
 
     const stored = JSON.parse(localStorage.getItem("mynews.votes.v1")!);
     expect(stored[hn.id]).toMatchObject({ value: 1, source: "hn", section: "front", topics: ["rust"] });
-    expect(calls.filter((c) => c.method === "PUT").map((c) => JSON.parse(c.body!).value)).toEqual([1]);
+    // without consent nothing identifies the reader: no session, no rating on the server
+    expect(calls.some((c) => c.url.endsWith("/session") || c.method === "PUT")).toBe(false);
+    // agreeing in the note uploads the earlier rating
+    const note = await screen.findByRole("complementary", { name: "Nota al lector" }, { timeout: 3000 });
+    fireEvent.click(within(note).getByRole("button", { name: "Sí, personalizar" }));
+    await waitFor(() => expect(calls.filter((c) => c.method === "PUT").map((c) => JSON.parse(c.body!).value)).toEqual([1]));
+    expect(calls.some((c) => c.url.endsWith("/session") && c.method === "POST")).toBe(true);
+    expect(localStorage.getItem("mynews.consent.v1")).toBe("granted");
+    await waitFor(() => expect(screen.queryByRole("complementary", { name: "Nota al lector" })).not.toBeInTheDocument());
 
     unmount();
     render(<App />); // a later visit: still rated, so no voting controls
@@ -204,6 +235,22 @@ describe("App", () => {
       expect(within(dialog).getByRole("heading", { name })).toBeInTheDocument();
     }
     expect(within(dialog).getByText(/imparcialidad/)).toBeInTheDocument();
+  });
+
+  it("lets the reader withdraw consent from the privacy notice, which deletes their data", async () => {
+    localStorage.setItem("mynews.consent.v1", "granted");
+    resetConsent();
+    const calls = mockApi({});
+    HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) { this.open = true; };
+    render(<App />);
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith("/session") && c.method === "POST")).toBe(true));
+    fireEvent.click(within(screen.getByRole("navigation", { name: "Enlaces" })).getByRole("button", { name: "Privacidad" }));
+    const dialog = await screen.findByRole("dialog", { name: "Privacidad" });
+    expect(within(dialog).getByText("La personalización está activada.")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Desactivar y borrar mis datos" }));
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith("/session") && c.method === "DELETE")).toBe(true));
+    expect(within(dialog).getByText("La personalización está desactivada.")).toBeInTheDocument();
+    expect(localStorage.getItem("mynews.consent.v1")).toBe("declined");
   });
 
   it("explains the failure and offers a retry when the API fails", async () => {

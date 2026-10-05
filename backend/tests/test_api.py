@@ -181,3 +181,22 @@ async def test_docs_can_be_turned_off():
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app_), base_url="http://t") as c:
             for path in ("/docs", "/redoc", "/openapi.json"):
                 assert (await c.get(path)).status_code == expected, (enabled, path)
+
+
+async def test_deleting_the_session_forgets_the_reader(session, client):
+    from sqlalchemy import func, select
+
+    from app.models import ArticleFeedback, Event, User
+
+    session.add(article(1))
+    await session.commit()
+    await client.post("/session")
+    await client.put("/articles/1/feedback", json={"value": 1})
+    await client.post("/events", json={"events": [{"type": "click", "article_id": 1}]})
+    resp = await client.delete("/session")
+    assert resp.status_code == 204
+    assert "mn_session" not in client.cookies
+    assert await session.scalar(select(func.count()).select_from(User)) == 0
+    assert await session.scalar(select(func.count()).select_from(ArticleFeedback)) == 0
+    assert await session.scalar(select(func.count()).select_from(Event)) == 0
+    assert (await client.delete("/session")).status_code == 204  # nothing left: still fine

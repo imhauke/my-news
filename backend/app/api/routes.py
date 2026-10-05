@@ -3,12 +3,12 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.comments_tree import build_tree
-from app.api.session import ensure_session, optional_user, required_user
+from app.api.session import ensure_session, forget, optional_user, required_user
 from app.config import get_settings
 from app.db import get_session
 from app.enrich.digest import KINDS as DIGEST_KINDS
@@ -75,6 +75,12 @@ async def health(session: Session) -> dict:
 @router.post("/session")
 async def create_session(user: Annotated[User, Depends(ensure_session)]) -> dict:
     return {"user_id": user.id}
+
+
+@router.delete("/session", status_code=204)
+async def delete_session(response: Response, session: Session, user: MaybeUser) -> None:
+    """Withdraws consent: this browser's anonymous user and all its data are deleted."""
+    await forget(response, session, user)
 
 
 @router.get("/feed/latest", response_model=list[ArticleOut])
