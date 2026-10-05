@@ -34,7 +34,17 @@ concurrency:
 jobs:
   publish:
     name: Publish images
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # Only CI runs from a push to main in this repository deploy. workflow_run also fires for pull
+    # requests (including ones from forks, whose branch may well be called "main"), and it runs here
+    # with this repository's secrets, so without these checks a fork's code could be deployed.
+    # Manual runs (workflow_dispatch) are limited by GitHub to people with write access.
+    if: >-
+      github.event_name == 'workflow_dispatch' || (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.full_name == github.repository
+      )
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
