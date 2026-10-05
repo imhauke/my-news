@@ -1,0 +1,49 @@
+# Production: only Caddy exposes ports (80/443); db and api live on the internal network.
+name: mynews
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    env_file: ../backend/.env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      retries: 10
+
+  api:
+    image: ghcr.io/imhauke/my-news-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: ../backend/.env
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    image: ghcr.io/imhauke/my-news-backend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: ../backend/.env
+    command: python -m app.worker
+    depends_on:
+      - api
+
+  caddy:
+    image: ghcr.io/imhauke/my-news-frontend:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: ../backend/.env
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

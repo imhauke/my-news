@@ -1,0 +1,144 @@
+"""Enrichment jobs: excerpt from the original page and stage 0 with Gemini."""
+
+import asyncio
+from datetime import UTC, datetime
+
+import structlog
+from sqlalchemy import or_, select
+
+from app.ai.base import AIClient, AIError, Priority, QuotaExhausted
+from app.config import get_settings
+from app.db import SessionLocal
+from app.enrich.article_text import extract_article_text
+from app.enrich.meta import extract_description
+from app.enrich.stage0 import SYSTEM, EnrichmentBatch, build_prompt
+from app.ingest.fetch import make_client
+from app.models import Article
+
+log = structlog.get_logger()
+BATCH_SIZE = 10  # each item may carry up to 2,500 characters of article text
+MAX_PER_RUN = 100
+HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; MyNews/0.1; +https://github.com/imhauke/my-news)"}
+
+
+def _readable(article: Article) -> bool:
+    """Reuters arrives through Google News links that cannot be resolved without JavaScript, and
+    Ask HN posts link to the thread itself: neither has an article page to read."""
+    return article.source != "reuters" and not article.url.startswith("https://news.ycombinator.com/")
+
+
+async def fetch_article_texts(articles: list[Article]) -> dict[int, str]:
+    """Reads the opening paragraphs of each original page concurrently. Nothing is stored."""
+    cfg = get_settings()
+    sem = asyncio.Semaphore(cfg.http_concurrency)
+    texts: dict[int, str] = {}
+
+    async def one(article: Article, client) -> None:
+        try:
+            async with sem:
+                resp = await client.get(article.url, headers=HEADERS)
+            if resp.status_code == 200 and "html" in resp.headers.get("content-type", ""):
+                if text := extract_article_text(resp.text):
+                    texts[article.id] = text
+        except Exception as exc:  # noqa: BLE001 — an unreachable page just means no article text
+            log.debug("article_text_failed", url=article.url, error=str(exc))
+
+    async with make_client(cfg.http_timeout_seconds) as client:
+        await asyncio.gather(*(one(a, client) for a in articles if _readable(a)))
+    return texts
+
+
+async def fetch_meta_descriptions(limit: int = 60) -> None:
+    """For HN (and any source without an excerpt), reads og:description from the linked page.
+    Reuters arrives via Google News links that cannot be resolved without JS, so it is skipped."""
+    cfg = get_settings()
+    async with SessionLocal() as session:
+        articles = (await session.execute(
+            select(Article).where(
+                Article.summary.is_(None), Article.meta_fetched_at.is_(None),
+                Article.source != "reuters", Article.duplicate_of.is_(None),
+                ~Article.url.startswith("https://news.ycombinator.com/"),
+            ).order_by(Article.published_at.desc()).limit(limit)
+        )).scalars().all()
+        if not articles:
+            return
+        sem = asyncio.Semaphore(cfg.http_concurrency)
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; MyNews/0.1; +https://github.com/imhauke/my-news)"}
+
+        async def one(article: Article, client) -> None:
+            try:
+                async with sem:
+                    resp = await client.get(article.url, headers=headers)
+                if resp.status_code == 200 and "html" in resp.headers.get("content-type", ""):
+                    article.summary = extract_description(resp.text)
+            except Exception as exc:  # noqa: BLE001 — one dead page does not stop the rest
+                log.debug("meta_failed", url=article.url, error=str(exc))
+            article.meta_fetched_at = datetime.now(UTC)
+
+        async with make_client(cfg.http_timeout_seconds) as client:
+            await asyncio.gather(*(one(a, client) for a in articles))
+        await session.commit()
+        log.info("meta_done", checked=len(articles), found=sum(1 for a in articles if a.summary))
+
+
+async def enrich_articles(ai: AIClient | None = None, *, read_articles: bool = True) -> int:
+    """Enriches pending articles in batches, newest first.
+    If the quota runs out it stops; the rest is processed on the next run."""
+    cfg = get_settings()
+    if ai is None:
+        if not cfg.gemini_api_key:
+            log.info("enrich_skipped", reason="no GEMINI_API_KEY")
+            return 0
+        from app.ai.factory import get_ai_client
+        ai = get_ai_client()
+
+    done = 0
+    seen: set[int] = set()
+    async with SessionLocal() as session:
+        pending = (await session.execute(
+            # Pending: never enriched, or enriched before headline translation existed.
+            select(Article).where(
+                or_(Article.enriched_at.is_(None), Article.title_es.is_(None)), Article.duplicate_of.is_(None)
+            )
+            .order_by(Article.published_at.desc()).limit(MAX_PER_RUN)
+        )).scalars().all()
+        by_id = {a.id: a for a in pending}
+        bodies = await fetch_article_texts(list(pending)) if read_articles else {}
+        for start in range(0, len(pending), BATCH_SIZE):
+            batch = pending[start:start + BATCH_SIZE]
+            prompt = build_prompt([
+                {"id": a.id, "source": a.source, "section": a.section, "title": a.title, "summary": a.summary,
+                 "body": bodies.get(a.id)}
+                for a in batch
+            ])
+            try:
+                result = await ai.generate_json(
+                    prompt, EnrichmentBatch, model=cfg.gemini_model_lite, task="enrich",
+                    priority=Priority.ENRICHMENT, system=SYSTEM,
+                )
+            except QuotaExhausted:
+                log.warning("enrich_quota_exhausted", remaining=len(pending) - start)
+                break
+            except AIError as exc:
+                log.warning("enrich_batch_failed", error=str(exc))
+                continue
+            now = datetime.now(UTC)
+            for item in result.items:
+                article = by_id.get(item.id)
+                if article is None or article.id in seen:
+                    continue  # id invented or repeated by the model
+                seen.add(article.id)
+                article.title_es = item.title_es.strip()
+                # Without an excerpt or article text (Reuters via Google News) the model could only
+                # restate the headline, so no description is stored.
+                has_context = bool(article.summary or bodies.get(article.id))
+                article.ai_summary_en = (item.summary_en.strip() or None) if has_context else None
+                article.ai_summary_es = (item.summary_es.strip() or None) if has_context else None
+                article.topics = [t.strip().lower() for t in item.topics if t.strip()]
+                article.topics_es = [t.strip().lower() for t in item.topics_es if t.strip()]
+                article.global_score = item.global_score
+                article.enriched_at = now
+                done += 1
+            await session.commit()
+    log.info("enrich_done", enriched=done)
+    return done
