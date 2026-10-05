@@ -1,8 +1,9 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useRef, useState } from "react";
+import type { Transition } from "motion/react";
 import { SOURCE_LABEL, SOURCE_SECTIONS, clockTime, description, groupByDay, groupByFrontDay } from "./format";
 import { Headline } from "./Headline";
-import { EASE_OUT, LOAD_SEQUENCE_MS, MAX_STAGGER_STEPS, STAGGER_S, entrance } from "./motion";
+import { EASE_OUT, LOAD_SEQUENCE_MS, MAX_STAGGER_STEPS, REVEAL_S, STAGGER_S, entrance, scrollReveal, scrollSpeed } from "./motion";
 import { Photo } from "./Photo";
 import { SegmentedControl } from "./SegmentedControl";
 import { SECTION_LABEL, useLang, useT } from "./i18n";
@@ -14,24 +15,28 @@ interface ItemProps {
   article: Article;
   position: number;
   ranked: boolean;
-  /** Seconds to wait before revealing: staggers the stories visible on load, 0 when scrolling. */
-  delay: number;
+  /** Decides the entrance when the story comes into view: staggered on load, scroll-paced later. */
+  revealTiming: () => Transition;
 }
 
-function RiverItem({ article, position, ranked, delay }: ItemProps) {
+function RiverItem({ article, position, ranked, revealTiming }: ItemProps) {
   const lang = useLang();
   const ref = useImpression<HTMLLIElement>(article.id, position);
   const [hasPhoto, setHasPhoto] = useState(Boolean(article.image_url));
   const text = description(article, lang);
+  // Timing is chosen on entering the viewport, not at render: a story rendered on load but reached
+  // later by scrolling must not inherit the load sequence's delay.
+  const [reveal, setReveal] = useState<Transition | null>(null);
   return (
     <motion.li
       ref={ref}
       className={`river-item${hasPhoto ? " has-photo" : ""}`}
       style={{ viewTransitionName: `river-${article.id}` }}
       initial={entrance.initial}
-      whileInView={entrance.animate}
-      viewport={{ once: true, amount: 0.1 }}
-      transition={{ duration: 0.6, ease: EASE_OUT, delay }}
+      animate={reveal ? entrance.animate : undefined}
+      transition={reveal ?? undefined}
+      viewport={{ once: true }}
+      onViewportEnter={() => setReveal((current) => current ?? revealTiming())}
     >
       {ranked && article.hn_front_rank != null ? (
         <span className="clock rank">{article.hn_front_rank}.</span>
@@ -76,18 +81,20 @@ export function River({
   // When a new list arrives (page load, another source), its visible stories enter as one
   // staggered sequence after the front lane; stories revealed later by scrolling enter at once.
   const mountedAt = useRef(Date.now());
+  const step = useRef(0);
   const shownKey = useRef("");
   if (articles.length === 0 || shownKey.current !== listKey) {
     shownKey.current = articles.length ? listKey : "";
     mountedAt.current = Date.now();
+    step.current = 0;
   }
+  const revealTiming = (): Transition =>
+    Date.now() - mountedAt.current < LOAD_SEQUENCE_MS && scrollSpeed() < 0.5
+      ? { duration: REVEAL_S, ease: EASE_OUT, delay: 0.35 + Math.min(step.current++, MAX_STAGGER_STEPS) * STAGGER_S }
+      : scrollReveal();
   const ranked = filter.source === "hn"; // HN follows /front: grouped by day, in its own ranking
   const groups = ranked ? groupByFrontDay(articles, lang) : groupByDay(articles, lang);
   let position = 100; // river positions start after the front-page lane
-  let step = 0;
-  const delayFor = () => (Date.now() - mountedAt.current < LOAD_SEQUENCE_MS
-    ? 0.35 + Math.min(step++, MAX_STAGGER_STEPS) * STAGGER_S
-    : 0);
   return (
     <section className="river" aria-labelledby="river-title">
       <div className="river-head" style={{ viewTransitionName: "river-head" }}>
@@ -152,7 +159,7 @@ export function River({
           <div key={g.label} className="day">
             <h3 className="day-label" style={{ viewTransitionName: `day-${i}` }}>{g.label}</h3>
             <ol className="river-list">
-              {g.items.map((a) => <RiverItem key={a.id} article={a} position={position++} ranked={ranked} delay={delayFor()} />)}
+              {g.items.map((a) => <RiverItem key={a.id} article={a} position={position++} ranked={ranked} revealTiming={revealTiming} />)}
             </ol>
           </div>
         ))}
