@@ -1,0 +1,43 @@
+# Especificación del proyecto (documento privado)
+*.pdf
+
+# Secretos y entorno — nunca al repositorio
+.env
+.env.*
+!.env.example
+
+# macOS / editores
+.DS_Store
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# Node
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Datos locales y backups
+*.dump
+*.sql.gz
+pgdata/
+backups/
+
+# Configuración local de herramientas de desarrollo
+.claude/
+.impeccable/
+skills-lock.json
+PRODUCT.md
