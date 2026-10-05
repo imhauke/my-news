@@ -46,7 +46,7 @@ async def upsert_articles(session: AsyncSession, items: list[ParsedArticle]) -> 
             source=a.source, external_id=a.external_id, url=a.url, url_normalized=norm, title=a.title,
             summary=a.summary, section=a.section, author=a.author, published_at=a.published_at,
             hn_points=a.hn_points, hn_comment_count=a.hn_comment_count,
-            hn_front_day=a.hn_front_day, hn_front_rank=a.hn_front_rank,
+            hn_front_day=a.hn_front_day, hn_front_rank=a.hn_front_rank, image_url=a.image_url,
         )
         if key not in existing:
             dup = by_url.get(norm) or next((i for i, t in titles if titles_similar(a.title, t)), None)
@@ -58,6 +58,8 @@ async def upsert_articles(session: AsyncSession, items: list[ParsedArticle]) -> 
             stats["updated"] += 1
         stmt = insert(Article).values(**values)
         update_cols = {c: stmt.excluded[c] for c in UPDATABLE}
+        if a.image_url:  # feeds that carry an image keep it current; others get one from page meta
+            update_cols["image_url"] = stmt.excluded.image_url
         if a.hn_front_day:  # a story ranked again on a later /front keeps its latest position
             update_cols |= {"hn_front_day": stmt.excluded.hn_front_day, "hn_front_rank": stmt.excluded.hn_front_rank}
         article_id = (await session.execute(

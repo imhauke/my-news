@@ -12,6 +12,7 @@ def test_parse_ars_feed_skips_entries_without_title():
     a = items[0]
     assert (a.source, a.section, a.author) == ("ars", "ai", "Jane Doe")
     assert a.summary == "Rules changed (https://x.test)."
+    assert a.image_url == "https://cdn.arstechnica.net/chips-1152x648.jpg"
 
 
 def test_parse_reuters_sitemap_keeps_followed_sections_only():
@@ -24,6 +25,8 @@ def test_parse_reuters_sitemap_keeps_followed_sections_only():
     assert world.url == "https://www.reuters.com/world/europe/spanish-pm-sanchez-2026-10-05/"
     assert world.external_id == "/world/europe/spanish-pm-sanchez-2026-10-05/"
     assert world.published_at.isoformat() == "2026-10-05T08:45:12+00:00"
+    assert world.image_url == "https://www.reuters.com/resizer/v2/ABC.jpg?auth=xyz&smart=true&width=960"
+    assert items[1].image_url is None
 
 
 def test_parse_hn_item_keeps_front_stories_and_skips_non_stories():

@@ -64,15 +64,21 @@ def parse_ars_feed(xml: str, section: str) -> list[ParsedArticle]:
     for e in feedparser.parse(xml).entries:
         if not e.get("link") or not e.get("title"):
             continue
+        media = [m.get("url") for m in e.get("media_content", []) if m.get("medium", "image") == "image"]
         out.append(ParsedArticle(
             source="ars", external_id=e.get("id") or e.link, url=e.link, title=e.title.strip(),
             published_at=_entry_datetime(e), summary=_short(e.get("summary")), section=section,
-            author=e.get("author"),
+            author=e.get("author"), image_url=next((u for u in media if u), None),
         ))
     return out
 
 
-_NS = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9", "news": "http://www.google.com/schemas/sitemap-news/0.9"}
+_NS = {
+    "sm": "http://www.sitemaps.org/schemas/sitemap/0.9",
+    "news": "http://www.google.com/schemas/sitemap-news/0.9",
+    "image": "http://www.google.com/schemas/sitemap-image/1.1",
+}
+REUTERS_IMAGE_WIDTH = 960  # Reuters' resizer keeps the signed URL valid for other widths
 
 
 def parse_reuters_sitemap(xml: str) -> list[ParsedArticle]:
@@ -87,9 +93,13 @@ def parse_reuters_sitemap(xml: str) -> list[ParsedArticle]:
         section = urlsplit(loc).path.strip("/").split("/")[0]
         if section not in REUTERS_SECTIONS or not title or not published:
             continue
+        image = (url.findtext("image:image/image:loc", "", _NS) or "").strip() or None
+        if image:
+            image = re.sub(r"([?&])width=\d+", rf"\g<1>width={REUTERS_IMAGE_WIDTH}", image)
         out.append(ParsedArticle(
             source="reuters", external_id=urlsplit(loc).path, url=loc, title=title,
             published_at=datetime.fromisoformat(published.replace("Z", "+00:00")), section=section,
+            image_url=image,
         ))
     return out
 

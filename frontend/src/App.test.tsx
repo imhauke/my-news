@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { vi } from "vitest";
 import App, { POLL_MS } from "./App";
+import { reloadLocalState } from "./local";
 import type { Article } from "./types";
 
 const hn: Article = {
@@ -33,7 +34,10 @@ function mockApi(routes: Routes, { failLatest = false } = {}) {
 }
 
 describe("App", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    reloadLocalState();
+  });
   afterEach(() => vi.restoreAllMocks());
 
   it("renders everything in Spanish by default: headlines, descriptions, sections and UI", async () => {
@@ -68,10 +72,13 @@ describe("App", () => {
     const calls = mockApi({ "/feed/latest": [hn] });
     render(<App />);
     await screen.findByRole("link", { name: "Sale Rust 2.0" });
-    fireEvent.click(screen.getByRole("button", { name: "Ars Technica" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Seguridad" }));
+    const sources = screen.getByRole("group", { name: "Filtrar por fuente" });
+    fireEvent.click(within(sources).getByRole("button", { name: "Ars Technica" }));
+    const sections = await screen.findByRole("group", { name: "Filtrar por sección" });
+    fireEvent.click(within(sections).getByRole("button", { name: "Seguridad" }));
     await waitFor(() => expect(calls.some((c) => c.url.includes("source=ars") && c.url.includes("section=security"))).toBe(true));
-    expect(screen.getByRole("button", { name: "Todo Ars Technica" })).toBeInTheDocument();
+    expect(within(sources).getByRole("button", { name: "Ars Technica" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(sections).getByRole("button", { name: "Todo" })).toBeInTheDocument();
   });
 
   it("shows Hacker News in /front order, grouped by day and numbered", async () => {
@@ -81,23 +88,44 @@ describe("App", () => {
     ];
     const calls = mockApi({ "/feed/latest": ranked });
     render(<App />);
-    fireEvent.click(await screen.findByRole("button", { name: "Hacker News" }));
+    fireEvent.click(within(await screen.findByRole("group", { name: "Filtrar por fuente" })).getByRole("button", { name: "Hacker News" }));
     expect(await screen.findByRole("heading", { name: "Portada de Hacker News del 4 de octubre" })).toBeInTheDocument();
     expect(screen.getByText("1.")).toBeInTheDocument();
     expect(screen.getByText("2.")).toBeInTheDocument();
     expect(calls.some((c) => c.url.includes("source=hn"))).toBe(true);
   });
 
-  it("sends thumbs up, and a second click clears it", async () => {
+  it("stores a vote in this browser, sends it to the API and hides the controls for good", async () => {
     const calls = mockApi({ "/feed/latest": [hn] });
+    const { unmount } = render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Me interesa" }));
+    // the chosen thumb celebrates for a moment before the controls fold away
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Me interesa" })).not.toBeInTheDocument(),
+      { timeout: 3000 });
+    expect(screen.queryByRole("button", { name: "No me interesa" })).not.toBeInTheDocument();
+    // the controls fade out in place: their slot stays so the meta line does not shift
+    expect(document.querySelector(".feedback")).toHaveAttribute("aria-hidden", "true");
+
+    const stored = JSON.parse(localStorage.getItem("mynews.votes.v1")!);
+    expect(stored[hn.id]).toMatchObject({ value: 1, source: "hn", section: "front", topics: ["rust"] });
+    expect(calls.filter((c) => c.method === "PUT").map((c) => JSON.parse(c.body!).value)).toEqual([1]);
+
+    unmount();
+    render(<App />); // a later visit: still rated, so no voting controls
+    await screen.findByRole("link", { name: "Sale Rust 2.0" });
+    expect(screen.queryByRole("button", { name: "Me interesa" })).not.toBeInTheDocument();
+  });
+
+  it("marks opened stories as read and remembers it", async () => {
+    mockApi({ "/feed/latest": [hn] });
+    const { unmount } = render(<App />);
+    const link = await screen.findByRole("link", { name: "Sale Rust 2.0" });
+    expect(screen.queryByText("Leído")).not.toBeInTheDocument();
+    fireEvent.click(link);
+    expect(await screen.findByText("Leído")).toBeInTheDocument();
+    unmount();
     render(<App />);
-    const up = await screen.findByRole("button", { name: "Me interesa" });
-    fireEvent.click(up);
-    await waitFor(() => expect(up).toHaveAttribute("aria-pressed", "true"));
-    fireEvent.click(up);
-    await waitFor(() => expect(up).toHaveAttribute("aria-pressed", "false"));
-    const bodies = calls.filter((c) => c.method === "PUT").map((c) => JSON.parse(c.body!).value);
-    expect(bodies).toEqual([1, 0]);
+    expect(await screen.findByText("Leído")).toBeInTheDocument();
   });
 
   it("applies an explicit light or dark theme over the system preference", async () => {

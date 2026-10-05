@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app.ai.base import AIError, QuotaExhausted
 from app.enrich import jobs
-from app.enrich.meta import extract_description
+from app.enrich.meta import extract_description, extract_image
 from app.enrich.stage0 import EnrichedItem, EnrichmentBatch, build_prompt
 from app.models import Article
 
@@ -133,3 +133,24 @@ async def test_article_text_is_passed_to_the_model(session, articles, monkeypatc
     ai = FakeAI([EnrichmentBatch(items=[item(a.id) for a in articles])])
     await jobs.enrich_articles(ai)
     assert "article text: Body text with details." in ai.prompts[0]
+
+
+def test_extract_image_resolves_relative_urls_and_ignores_other_schemes():
+    page = '<meta property="og:image" content="/img/lead.jpg"><meta name="twitter:image" content="x.png">'
+    assert extract_image(page, "https://blog.test/post/1") == "https://blog.test/img/lead.jpg"
+    assert extract_image('<meta name="twitter:image" content="https://cdn.test/a.png">', "https://b.test") \
+        == "https://cdn.test/a.png"
+    assert extract_image('<meta property="og:image" content="data:image/png;base64,xx">', "https://b.test") is None
+    assert extract_image("<p>no meta</p>", "https://b.test") is None
+
+
+def test_extract_image_skips_cards_logos_and_icons():
+    def page(url):
+        return f'<meta property="og:image" content="{url}">'
+
+    assert extract_image(page("https://opengraph.githubassets.com/abc/user/repo"), "https://b.test") is None
+    assert extract_image(page("/static/site-logo.png"), "https://b.test") is None
+    assert extract_image(page("/img/default-og-image.jpg"), "https://b.test") is None
+    assert extract_image(page("/img/banner.svg"), "https://b.test") is None
+    assert extract_image(page("/uploads/2026/10/protest-crowd.jpg"), "https://b.test") \
+        == "https://b.test/uploads/2026/10/protest-crowd.jpg"

@@ -7,8 +7,8 @@ An AI-powered news feed. It aggregates Reuters (World, Technology), Ars Technica
 - **Ingestion**: concurrent, idempotent fetching with retries and backoff; deduplication by normalised URL and headline similarity. Hacker News follows [`/front`](https://news.ycombinator.com/front), the list of stories that made the front page each day, in the same order.
 - **AI enrichment** (Gemini Flash-Lite, batched, once per article): translated headline, a short description in English and Spanish, topics and a global relevance score. Descriptions are written from the original article text and skipped when there is nothing beyond the headline.
 - **Hacker News discussions**: full comment trees fetched on demand, stored as rows and rebuilt with a recursive SQL query; translated to Spanish on request.
-- **Feedback**: thumbs up/down per story from an anonymous per-browser session, stored as the training signal for the upcoming For You feed.
-- **Web app**: editorial layout, English/Spanish interface, light and dark themes, source and section filters.
+- **Reader state without accounts**: read stories and thumbs up/down are kept in each browser's localStorage (votes also reach the API as events), seeding the training signal for the upcoming For You feed.
+- **Web app**: editorial layout with black-and-white source photos, English/Spanish interface, light and dark themes, source and section filters, live updates and Motion animations.
 
 ## Stack
 
@@ -57,6 +57,17 @@ Source parsers are tested against recorded responses and the Gemini client is al
 
 - **CI** runs on every push and pull request: backend lint and tests against PostgreSQL, migrations applied from scratch, frontend type checks, tests and build, and both Docker images.
 - **Deploy** runs after CI passes on `main`: it publishes the images to GitHub Container Registry tagged with the commit SHA. Deploying to a server is opt-in; see the comments in `.github/workflows/deploy.yml`.
+
+## Self-hosting
+
+Production runs as Docker Compose behind a reverse proxy that terminates TLS: `infra/docker-compose.prod.yml` publishes no ports and attaches the web container to an external Docker network named `edge` with the alias `mynews-web`. Point your proxy's site at `mynews-web:80`.
+
+```bash
+docker network create edge          # once per server
+./scripts/deploy.sh                 # syncs the source and builds the images on the server
+```
+
+`scripts/deploy.sh` reads `MN_HOST` and `MN_REMOTE` from `backend/.env` and never uploads that file: the server keeps its own `backend/.env` with production secrets.
 
 ## Configuration
 

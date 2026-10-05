@@ -16,6 +16,7 @@ class ParsedArticle:
     hn_comment_count: int | None = None
     hn_front_day: date | None = None
     hn_front_rank: int | None = None
+    image_url: str | None = None
 
 
 @dataclass(frozen=True)

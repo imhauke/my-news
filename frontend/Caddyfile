@@ -1,13 +1,29 @@
-# Automatic HTTPS for {$DOMAIN}. Locally, DOMAIN=localhost.
-{$DOMAIN:localhost} {
+# Serves the built frontend and proxies /api to the backend.
+# Behind a shared reverse proxy (which terminates TLS) it listens on plain :80. To run it on its own
+# with automatic HTTPS, set SITE_ADDRESS to the domain and publish ports 80/443.
+{$SITE_ADDRESS::80} {
 	encode zstd gzip
 
 	handle_path /api/* {
 		reverse_proxy api:8000
 	}
 
+	# Hashed build output never changes under the same name.
+	handle /assets/* {
+		root * /srv
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
 	handle {
 		root * /srv
+		header {
+			X-Content-Type-Options "nosniff"
+			Referrer-Policy "strict-origin-when-cross-origin"
+			-Server
+		}
+		@entry path / /index.html
+		header @entry Cache-Control "no-cache"
 		try_files {path} /index.html
 		file_server
 	}

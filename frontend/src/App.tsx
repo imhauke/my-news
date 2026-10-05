@@ -1,3 +1,4 @@
+import { MotionConfig } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 import { PAGE_SIZE, ensureSession, fetchImportant, fetchLatest, fetchMetrics } from "./api";
 import { CommentsSheet } from "./CommentsSheet";
@@ -28,10 +29,12 @@ export default function App() {
   const [lang, setLang] = useState<Lang>(() => stored("mynews.lang", ["es", "en"] as const, "es"));
   const [theme, setTheme] = useState<Theme>(() => stored("mynews.theme", ["system", "light", "dark"] as const, "system"));
   const [filter, setFilter] = useState<Filter>({});
+  const [shownFilter, setShownFilter] = useState<Filter>({}); // the filter the list on screen belongs to
   const [important, setImportant] = useState<Article[]>([]);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [canLoadMore, setCanLoadMore] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -66,7 +69,12 @@ export default function App() {
     setLoading(true);
     setError(null);
     fetchLatest(filter)
-      .then((a) => { if (!cancelled) { setArticles(a); setCanLoadMore(a.length === PAGE_SIZE); } })
+      .then((a) => {
+        if (cancelled) return;
+        setArticles(a);
+        setShownFilter(filter);
+        setCanLoadMore(a.length === PAGE_SIZE);
+      })
       .catch((e: Error) => !cancelled && setError(e.message))
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
@@ -103,7 +111,7 @@ export default function App() {
   const loadMore = useCallback(async () => {
     const last = articles.at(-1);
     if (!last) return;
-    setLoading(true);
+    setLoadingMore(true);
     try {
       // HN is ranked, not chronological: page by position instead of by date.
       const page = filter.source === "hn" ? { offset: articles.length } : { before: last.published_at };
@@ -113,19 +121,20 @@ export default function App() {
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setLoading(false);
+      setLoadingMore(false);
     }
   }, [articles, filter]);
 
   const t = DICTS[lang];
   return (
+    <MotionConfig reducedMotion="user">
     <LangContext.Provider value={lang}>
       <div className="page">
         <Masthead metrics={metrics} onLang={setLang} theme={theme} onTheme={setTheme} />
         <main>
           <Important articles={important} onComments={setSheetArticle} />
           <River
-            articles={articles} filter={filter} onFilter={setFilter} loading={loading} error={error}
+            articles={articles} listKey={JSON.stringify(shownFilter)} filter={filter} onFilter={setFilter} loading={loading} loadingMore={loadingMore} error={error}
             canLoadMore={canLoadMore} onLoadMore={loadMore} onRetry={() => setAttempt(attempt + 1)}
           />
         </main>
@@ -136,5 +145,6 @@ export default function App() {
         <CommentsSheet article={sheetArticle} onClose={() => setSheetArticle(null)} />
       </div>
     </LangContext.Provider>
+    </MotionConfig>
   );
 }

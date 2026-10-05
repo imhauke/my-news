@@ -3,7 +3,8 @@
   <url><loc>https://www.reuters.com/world/europe/spanish-pm-sanchez-2026-10-05/</loc>
     <news:news><news:publication><news:name>Reuters</news:name><news:language>en</news:language></news:publication>
       <news:publication_date>2026-10-05T08:45:12.000Z</news:publication_date>
-      <news:title><![CDATA[Spanish PM Sanchez gambles on November 29 snap election]]></news:title></news:news></url>
+      <news:title><![CDATA[Spanish PM Sanchez gambles on November 29 snap election]]></news:title></news:news>
+    <image:image><image:loc>https://www.reuters.com/resizer/v2/ABC.jpg?auth=xyz&amp;smart=true&amp;width=1920</image:loc></image:image></url>
   <url><loc>https://www.reuters.com/es/negocio/eurozona-2026-10-05/</loc>
     <news:news><news:publication><news:name>Reuters</news:name><news:language>en</news:language></news:publication>
       <news:publication_date>2026-10-05T08:44:00.000Z</news:publication_date>

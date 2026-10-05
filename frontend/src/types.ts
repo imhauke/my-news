@@ -13,6 +13,7 @@ export interface Article {
   ai_summary_en: string | null;
   ai_summary_es: string | null;
   section: string | null;
+  image_url?: string | null;
   author: string | null;
   published_at: string;
   hn_points: number | null;

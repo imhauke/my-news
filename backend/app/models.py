@@ -46,6 +46,7 @@ class Article(Base):
     ai_summary_en: Mapped[str | None] = mapped_column(Text)  # generated short description (stage 0)
     ai_summary_es: Mapped[str | None] = mapped_column(Text)
     section: Mapped[str | None] = mapped_column(String(64))
+    image_url: Mapped[str | None] = mapped_column(Text)  # lead image hosted by the source
     author: Mapped[str | None] = mapped_column(String(128))
     published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     hn_points: Mapped[int | None] = mapped_column(Integer)

@@ -1,10 +1,31 @@
-# Production: only Caddy exposes ports (80/443); db and api live on the internal network.
+# Production. Nothing here publishes a port: a shared reverse proxy on the external Docker network
+# `edge` terminates TLS and forwards the site to `mynews-web`.
+#
+#   docker network create edge   # once per server
+#   docker compose -f infra/docker-compose.prod.yml build api && \
+#   docker compose -f infra/docker-compose.prod.yml build web && \
+#   docker compose -f infra/docker-compose.prod.yml up -d
+#
+# Images are built on the server from the synced source (scripts/deploy.sh); the CD workflow can
+# publish the same names to GHCR instead.
 name: mynews
+
+x-logging: &logging  # capped container logs: the disk is shared with other projects
+  driver: json-file
+  options: { max-size: "10m", max-file: "3" }
+
+x-backend: &backend
+  image: ghcr.io/imhauke/my-news-backend:${IMAGE_TAG:-latest}
+  build: ../backend
+  env_file: ../backend/.env
+  restart: unless-stopped
+  logging: *logging
 
 services:
   db:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
+    logging: *logging
     env_file: ../backend/.env
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -14,36 +35,41 @@ services:
       retries: 10
 
   api:
-    image: ghcr.io/imhauke/my-news-backend:${IMAGE_TAG:-latest}
-    restart: unless-stopped
-    env_file: ../backend/.env
+    <<: *backend
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     depends_on:
       db:
         condition: service_healthy
 
   worker:
-    image: ghcr.io/imhauke/my-news-backend:${IMAGE_TAG:-latest}
-    restart: unless-stopped
-    env_file: ../backend/.env
+    <<: *backend
     command: python -m app.worker
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
-  caddy:
+  web:
     image: ghcr.io/imhauke/my-news-frontend:${IMAGE_TAG:-latest}
+    build: ../frontend
     restart: unless-stopped
-    env_file: ../backend/.env
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - caddy_data:/data
-      - caddy_config:/config
+    logging: *logging
+    networks:
+      default:
+      edge:
+        aliases: [mynews-web]
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
 volumes:
   pgdata:
-  caddy_data:
-  caddy_config:
+
+networks:
+  edge:
+    external: true

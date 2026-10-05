@@ -16,6 +16,7 @@ class ArticleOut(BaseModel):
     ai_summary_en: str | None
     ai_summary_es: str | None
     section: str | None
+    image_url: str | None = None
     author: str | None
     published_at: datetime
     hn_points: int | None

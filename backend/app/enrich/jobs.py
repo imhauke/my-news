@@ -10,7 +10,7 @@ from app.ai.base import AIClient, AIError, Priority, QuotaExhausted
 from app.config import get_settings
 from app.db import SessionLocal
 from app.enrich.article_text import extract_article_text
-from app.enrich.meta import extract_description
+from app.enrich.meta import extract_description, extract_image
 from app.enrich.stage0 import SYSTEM, EnrichmentBatch, build_prompt
 from app.ingest.fetch import make_client
 from app.models import Article
@@ -48,29 +48,30 @@ async def fetch_article_texts(articles: list[Article]) -> dict[int, str]:
     return texts
 
 
-async def fetch_meta_descriptions(limit: int = 60) -> None:
-    """For HN (and any source without an excerpt), reads og:description from the linked page.
-    Reuters article pages reject automated requests (HTTP 401), so it is skipped."""
+async def fetch_page_meta(limit: int = 60) -> None:
+    """Reads the linked page once per article to fill what the feed lacks: the excerpt
+    (og:description) and the lead image (og:image). Mostly Hacker News links.
+    Reuters article pages reject automated requests (HTTP 401), so they are skipped."""
     cfg = get_settings()
     async with SessionLocal() as session:
         articles = (await session.execute(
             select(Article).where(
-                Article.summary.is_(None), Article.meta_fetched_at.is_(None),
-                Article.source != "reuters", Article.duplicate_of.is_(None),
+                or_(Article.summary.is_(None), Article.image_url.is_(None)),
+                Article.meta_fetched_at.is_(None), Article.source != "reuters", Article.duplicate_of.is_(None),
                 ~Article.url.startswith("https://news.ycombinator.com/"),
             ).order_by(Article.published_at.desc()).limit(limit)
         )).scalars().all()
         if not articles:
             return
         sem = asyncio.Semaphore(cfg.http_concurrency)
-        headers = {"User-Agent": "Mozilla/5.0 (compatible; MyNews/0.1; +https://github.com/imhauke/my-news)"}
 
         async def one(article: Article, client) -> None:
             try:
                 async with sem:
-                    resp = await client.get(article.url, headers=headers)
+                    resp = await client.get(article.url, headers=HEADERS)
                 if resp.status_code == 200 and "html" in resp.headers.get("content-type", ""):
-                    article.summary = extract_description(resp.text)
+                    article.summary = article.summary or extract_description(resp.text)
+                    article.image_url = article.image_url or extract_image(resp.text, str(resp.url))
             except Exception as exc:  # noqa: BLE001 — one dead page does not stop the rest
                 log.debug("meta_failed", url=article.url, error=str(exc))
             article.meta_fetched_at = datetime.now(UTC)
@@ -78,7 +79,7 @@ async def fetch_meta_descriptions(limit: int = 60) -> None:
         async with make_client(cfg.http_timeout_seconds) as client:
             await asyncio.gather(*(one(a, client) for a in articles))
         await session.commit()
-        log.info("meta_done", checked=len(articles), found=sum(1 for a in articles if a.summary))
+        log.info("meta_done", checked=len(articles), images=sum(1 for a in articles if a.image_url))
 
 
 async def enrich_articles(ai: AIClient | None = None, *, read_articles: bool = True) -> int:

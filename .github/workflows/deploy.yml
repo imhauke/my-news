@@ -3,10 +3,13 @@ name: Deploy
 # After a green CI run on main: publishes the images to GHCR (tagged with the commit SHA and
 # latest) and, if the repository variable DEPLOY_ENABLED is "true", deploys to the VPS.
 #
-# Setup (Settings → Environments → production):
-#   secrets   SSH_HOST, SSH_USER, SSH_KEY (private key), SSH_KNOWN_HOSTS (output of ssh-keyscan)
-#   variables DEPLOY_PATH (default /opt/mynews), PUBLIC_URL (e.g. https://mynews.example.com)
-# The VPS must have $DEPLOY_PATH/backend/.env with the app's secrets.
+# Setup:
+#   repository variables  DEPLOY_ENABLED=true, DEPLOY_PATH (default /opt/mynews), PUBLIC_URL
+#   environment "production" secrets  SSH_HOST, SSH_USER, SSH_KEY (private key of a deploy-only
+#                                      key), SSH_KNOWN_HOSTS (output of ssh-keyscan)
+# The server needs Docker, the external network `edge` behind a TLS proxy, and
+# $DEPLOY_PATH/backend/.env with the app's secrets. It pulls the images with this job's
+# short-lived token, so no registry credentials are stored on it.
 #
 # To roll back: Actions → Deploy → Run workflow with the SHA to deploy.
 
@@ -70,7 +73,10 @@ jobs:
     needs: publish
     if: vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
     environment:
       name: production
       url: ${{ vars.PUBLIC_URL }}
@@ -90,12 +96,17 @@ jobs:
       - name: Copy infrastructure config
         run: rsync -az -e "ssh -i ~/.ssh/id_deploy" infra/ "$TARGET:$DEPLOY_PATH/infra/"
       - name: Update containers
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ssh -i ~/.ssh/id_deploy "$TARGET" \
-            "cd $DEPLOY_PATH && export IMAGE_TAG=$TAG && \
-             docker compose -f infra/docker-compose.prod.yml pull && \
-             docker compose -f infra/docker-compose.prod.yml up -d --remove-orphans && \
-             docker image prune -f"
+          # The server logs in to GHCR with this job's token only for the pull, then logs out.
+          echo "$REGISTRY_TOKEN" | ssh -i ~/.ssh/id_deploy "$TARGET" \
+            "docker login ghcr.io -u ${{ github.actor }} --password-stdin >/dev/null && \
+             cd $DEPLOY_PATH && export IMAGE_TAG=$TAG && \
+             docker compose -f infra/docker-compose.prod.yml pull api worker web; status=\$?; \
+             docker logout ghcr.io >/dev/null; [ \$status -eq 0 ] && \
+             docker compose -f infra/docker-compose.prod.yml up -d --no-build --remove-orphans && \
+             docker image prune -f >/dev/null"
       - name: Check the API responds
         if: vars.PUBLIC_URL != ''
         run: |

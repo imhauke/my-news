@@ -1,6 +1,9 @@
 import { Monitor, Moon, Sun } from "lucide-react";
+import { motion } from "motion/react";
 import { formatNumber, todayLine } from "./format";
 import { useLang, useT } from "./i18n";
+import { EASE_OUT, entrance } from "./motion";
+import { SegmentedControl } from "./SegmentedControl";
 import type { Lang, Metrics, Theme } from "./types";
 
 function GithubMark() {
@@ -27,26 +30,26 @@ export function Masthead({ metrics, onLang, theme, onTheme }: Props) {
     { value: "system", label: t.themeSystem, Icon: Monitor },
   ];
   return (
-    <header className="masthead">
+    <motion.header className="masthead" {...entrance} transition={{ duration: 0.8, ease: EASE_OUT }}>
       <div className="masthead-top">
         <h1 className="wordmark">MyNews</h1>
         <div className="masthead-tools">
-          <div className="segmented" role="group" aria-label={t.langGroup}>
-            {(["es", "en"] as Lang[]).map((l) => (
-              <button key={l} aria-pressed={lang === l} onClick={() => onLang(l)} lang={l}
-                      aria-label={l === "es" ? "Español" : "English"}>
-                {l.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          <div className="segmented" role="group" aria-label={t.themeGroup}>
-            {themes.map(({ value, label, Icon }) => (
-              <button key={value} aria-pressed={theme === value} onClick={() => onTheme(value)}
-                      aria-label={label} title={label}>
-                <Icon aria-hidden size={15} />
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            id="lang"
+            label={t.langGroup}
+            value={lang}
+            onChange={onLang}
+            segments={(["es", "en"] as Lang[]).map((l) => ({
+              value: l, label: l.toUpperCase(), lang: l, ariaLabel: l === "es" ? "Español" : "English",
+            }))}
+          />
+          <SegmentedControl
+            id="theme"
+            label={t.themeGroup}
+            value={theme}
+            onChange={onTheme}
+            segments={themes.map(({ value, label, Icon }) => ({ value, ariaLabel: label, label: <Icon aria-hidden size={15} /> }))}
+          />
           <a className="repo-link" href="https://github.com/imhauke/my-news" target="_blank" rel="noopener noreferrer">
             <GithubMark /> {t.code}
           </a>
@@ -58,6 +61,6 @@ export function Masthead({ metrics, onLang, theme, onTheme }: Props) {
           <span>{t.dateline(formatNumber(metrics.articles_total, lang), formatNumber(metrics.articles_enriched, lang))}</span>
         )}
       </p>
-    </header>
+    </motion.header>
   );
 }
