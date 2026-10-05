@@ -1,4 +1,4 @@
-import { description, groupByDay, headline, mergeFresh, timeAgo } from "./format";
+import { description, groupByDay, headline, mergeFresh, timeAgo, toBullets } from "./format";
 import type { Article } from "./types";
 
 const now = new Date("2026-10-05T12:00:00");
@@ -67,5 +67,15 @@ describe("mergeFresh", () => {
     const twoPages = [at(1, 1), at(2, 1), at(3, 1)];
     expect(mergeFresh(twoPages, [at(3, 1)], true, 2)).toBe(twoPages);
     expect(mergeFresh([at(1, 1)], [at(2, 1)], true, 30).map((a) => a.id)).toEqual([2]);
+  });
+});
+
+describe("toBullets", () => {
+  it("uses Gemini's bullets when there are several", () => {
+    expect(toBullets("A. B.", ["One", "Two"])).toEqual(["One", "Two"]);
+  });
+  it("splits the paragraph into sentences without breaking abbreviations", () => {
+    expect(toBullets("Brasil irá a segunda vuelta. EE. UU. retira bombarderos. ¿Y ahora? Sigue la tensión."))
+      .toEqual(["Brasil irá a segunda vuelta", "EE. UU. retira bombarderos", "¿Y ahora?", "Sigue la tensión"]);
   });
 });

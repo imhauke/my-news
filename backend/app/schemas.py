@@ -54,8 +54,11 @@ class EventIn(BaseModel):
 class DigestOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    kind: str
     text_en: str
     text_es: str
+    bullets_en: list[str] = []
+    bullets_es: list[str] = []
     article_ids: list[int]
     created_at: datetime
 

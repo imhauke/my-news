@@ -54,6 +54,8 @@ export function DiscussionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toggle = useCallback((article: Article) => show(current.current?.id === article.id ? null : article), [show]);
+
+
   const close = useCallback(() => show(null), [show]);
   const value = useMemo(
     () => ({ active, fullscreen, toggle, close, setFullscreen }),

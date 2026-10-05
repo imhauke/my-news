@@ -36,12 +36,19 @@ export interface CommentNode {
   children: CommentNode[];
 }
 
+export type DigestKind = "general" | "world" | "tech";
+
 export interface Digest {
+  kind: DigestKind;
   text_en: string;
   text_es: string;
+  bullets_en?: string[];
+  bullets_es?: string[];
   article_ids: number[];
   created_at: string;
 }
+
+export type Digests = Partial<Record<DigestKind, Digest | null>>;
 
 export interface Metrics {
   articles_total: number;

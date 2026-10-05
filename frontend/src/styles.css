@@ -237,21 +237,10 @@ button {
   border-radius: 6px;
 }
 
-.repo-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  text-decoration: none;
-  color: var(--ink-2);
-}
-
-.repo-link:hover {
-  color: var(--accent);
-}
-
+/* Date on the left, overview selector on the right. */
 .dateline {
+  justify-content: space-between;
+  align-items: center;
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem 1.5rem;
@@ -260,13 +249,21 @@ button {
   color: var(--ink-2);
 }
 
-/* The day's overview, written by Gemini: the reading voice, at a comfortable measure. */
+/* The day's overview, written by Gemini: the full width of the masthead, set in two newspaper
+   columns so every line keeps a comfortable length. */
 .digest {
-  max-width: 64ch;
-  margin-top: 0.9rem;
+  margin-top: 1rem;
+}
+
+.digest-stack {
+  display: grid;
 }
 
 .digest-text {
+  grid-area: 1 / 1;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 280ms var(--ease-out), visibility 0s linear 280ms;
   margin: 0;
   font-family: var(--serif);
   font-size: clamp(1.0625rem, 1.25vw, 1.1875rem);
@@ -275,10 +272,64 @@ button {
   text-wrap: pretty;
 }
 
-.digest-note {
-  margin: 0.5rem 0 0;
-  font-size: 0.75rem;
-  color: var(--ink-3);
+.digest-text[data-active] {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 280ms var(--ease-out) 60ms, visibility 0s;
+}
+
+.digest-paragraph {
+  margin: 0;
+}
+
+.digest-bullets {
+  display: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.digest-bullets li {
+  position: relative;
+  padding-left: 1.1rem;
+}
+
+.digest-bullets li + li {
+  margin-top: 0.55rem;
+}
+
+/* A small ink square as the marker, hung in the margin like a newspaper brief. */
+.digest-bullets li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 0.38rem;
+  height: 0.38rem;
+  background: var(--ink);
+}
+
+@media (min-width: 52rem) {
+  .digest-paragraph {
+    column-count: 2;
+    column-gap: 3.5rem;
+  }
+}
+
+/* Phones: one column makes the three overviews differ a lot in height, so only the active one
+   takes space (reserving the tallest would leave a large gap). */
+@media (max-width: 51.99rem) {
+  .digest-text:not([data-active]) {
+    display: none;
+  }
+
+  .digest-paragraph {
+    display: none;
+  }
+
+  .digest-bullets {
+    display: block;
+  }
 }
 
 .dateline time {
@@ -890,19 +941,16 @@ button {
   box-shadow: 0 18px 50px -12px rgb(18 20 23 / 0.28), 0 2px 6px rgb(18 20 23 / 0.06);
 }
 
+/* Docked: top and bottom here; left and width are animated from script (DiscussionPanel). */
 .discussion-panel[data-layout="side"] {
   top: var(--peek-inset);
-  right: var(--peek-inset);
   bottom: var(--peek-inset);
-  width: var(--peek-w);
   border-radius: 14px;
 }
 
 /* Full screen for reading in depth: the panel covers the window and the thread keeps a
    comfortable reading measure in the middle. */
 .discussion-panel[data-layout="side"][data-fullscreen] {
-  left: var(--peek-inset);
-  width: auto;
   z-index: 30;
 }
 
@@ -943,6 +991,18 @@ button {
 ::view-transition-old(discussion),
 ::view-transition-new(discussion) {
   animation: none;
+}
+
+.panel-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* While the box glides, its hidden text is not laid out at every frame. */
+.panel-content[data-phase="moving"] {
+  content-visibility: hidden;
 }
 
 /* The sheet is always full height and slides with a transform: collapsed it sits lower, showing
@@ -1100,6 +1160,11 @@ button {
 /* ── Footer ──────────────────────────────────────────────────── */
 
 .colophon {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem 3rem;
   margin-top: 4rem;
   padding-top: 1.5rem;
   border-top: 2px solid var(--rule-strong);
@@ -1107,14 +1172,146 @@ button {
   color: var(--ink-3);
 }
 
-.colophon p {
+.colophon-text {
+  flex: 1 1 28rem;
+}
+
+.colophon-text p {
   max-width: var(--measure);
   margin: 0 0 0.5rem;
 }
 
-.colophon a {
+.colophon-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.4rem;
+}
+
+.colophon-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
   color: var(--ink-2);
+  font: inherit;
   font-weight: 600;
+  text-decoration: none;
+  transition: color 200ms var(--ease-out);
+}
+
+.colophon-link:hover {
+  color: var(--accent);
+}
+
+/* ── Sources dialog ─────────────────────────────────────────── */
+
+.sources-dialog {
+  width: min(38rem, calc(100vw - 2rem));
+  max-height: min(42rem, calc(100dvh - 2rem));
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  box-shadow: 0 24px 60px -16px rgb(18 20 23 / 0.35);
+  overflow: hidden;
+}
+
+.sources-dialog::backdrop {
+  background: var(--backdrop);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sources-dialog[open] {
+    animation: dialog-in 320ms var(--ease-out);
+  }
+
+  .sources-dialog[open]::backdrop {
+    animation: backdrop-in 320ms var(--ease-out);
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+}
+
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.sources-inner {
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+}
+
+.sources-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem 0.9rem 1.5rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.sources-head h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1.375rem;
+  font-weight: 600;
+}
+
+.sources-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.25rem 1.5rem 1.75rem;
+  font-family: var(--serif);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.sources-body p {
+  margin: 0;
+}
+
+.sources-intro {
+  color: var(--ink-2);
+}
+
+.source-entry {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+}
+
+.source-entry h3 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1.1875rem;
+  font-weight: 600;
+}
+
+.source-sections {
+  margin: 0.15rem 0 0.5rem !important;
+  font-family: var(--sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.sources-closing {
+  margin-top: 1.5rem !important;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-2);
 }
 
 /* ── Mobile ────────────────────────────────────────────────── */

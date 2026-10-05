@@ -7,10 +7,36 @@ const es = {
   themeLight: "Claro",
   themeDark: "Oscuro",
   themeSystem: "Automático",
-  code: "Código",
+  footerLinks: "Enlaces",
+  ourSources: "Nuestras fuentes",
+  sources: {
+    title: "Nuestras fuentes",
+    intro:
+      "MyNews reúne tres fuentes elegidas por dos razones: buscamos imparcialidad, hechos contados sin tomar partido, y una cobertura a la vez amplia y concreta. Juntas cubren la actualidad mundial, la tecnología explicada a fondo y lo que la comunidad de ingenieros está debatiendo.",
+    items: [
+      {
+        name: "Reuters",
+        sections: "Mundo y Tecnología",
+        text: "Agencia de noticias internacional fundada en 1851. Sus Principios de Confianza la obligan a informar con independencia, integridad y sin sesgos, y sus despachos son la base de miles de medios de todo el espectro. Aporta hechos de primera mano y verificados, sin opinión, con corresponsales en todo el mundo y gran rapidez cuando algo ocurre.",
+      },
+      {
+        name: "Ars Technica",
+        sections: "IA, Biz & IT y Seguridad",
+        text: "Publicación especializada en tecnología desde 1998, escrita por periodistas con formación técnica y científica. Explica con profundidad lo que otros medios resumen en un titular, contrasta las afirmaciones de la industria y es conocida por su escepticismo ante el bombo. Da contexto y detalle en inteligencia artificial, empresa tecnológica y ciberseguridad.",
+      },
+      {
+        name: "Hacker News",
+        sections: "Portada del día",
+        text: "Comunidad de Y Combinator en la que ingenieros, investigadores y fundadores comparten y votan noticias. Usamos su portada del día anterior: una selección hecha por la propia comunidad técnica, sin algoritmo publicitario, con menos ruido que la portada en directo. Sus debates suman perspectivas de quienes trabajan en el tema, correcciones y recursos que no están en el artículo.",
+      },
+    ],
+    closing:
+      "Las tres se complementan: la agencia aporta los hechos con neutralidad, la prensa especializada la profundidad y la comunidad la mirada de quienes construyen la tecnología. MyNews solo muestra titulares, descripciones breves y enlaces: la noticia completa se lee siempre en su web original.",
+  },
   dateline: (total: string, enriched: string) =>
     `${total} noticias de Reuters, Ars Technica y Hacker News; Gemini ha resumido y traducido ${enriched}.`,
-  digestNote: (time: string) => `Resumen escrito por Gemini a las ${time} a partir de las noticias más relevantes.`,
+  digestKinds: { general: "General", world: "Mundo", tech: "Tecnología" },
+  digestGroup: "Tipo de resumen",
   important: "Lo importante hoy",
   latest: "Última hora",
   filterSource: "Filtrar por fuente",
@@ -63,10 +89,36 @@ const en: Dict = {
   themeLight: "Light",
   themeDark: "Dark",
   themeSystem: "Automatic",
-  code: "Code",
+  footerLinks: "Links",
+  ourSources: "Our sources",
+  sources: {
+    title: "Our sources",
+    intro:
+      "MyNews brings together three sources chosen for two reasons: we want impartiality, facts reported without taking sides, and coverage that is both broad and specific. Together they cover world affairs, technology explained in depth and what the engineering community is discussing.",
+    items: [
+      {
+        name: "Reuters",
+        sections: "World and Technology",
+        text: "International news agency founded in 1851. Its Trust Principles commit it to independence, integrity and freedom from bias, and its wires underpin thousands of outlets across the spectrum. It brings first-hand, verified facts without opinion, with correspondents around the world and great speed when news breaks.",
+      },
+      {
+        name: "Ars Technica",
+        sections: "AI, Biz & IT and Security",
+        text: "A technology publication since 1998, written by journalists with technical and scientific backgrounds. It explains in depth what other outlets reduce to a headline, checks industry claims and is known for its scepticism of hype. It adds context and detail on artificial intelligence, the tech business and cybersecurity.",
+      },
+      {
+        name: "Hacker News",
+        sections: "Daily front page",
+        text: "Y Combinator's community, where engineers, researchers and founders share and vote on stories. We use its front page of the previous day: a selection made by the technical community itself, with no advertising algorithm and less noise than the live front page. Its discussions add the views of people who work on the subject, corrections and resources the article does not have.",
+      },
+    ],
+    closing:
+      "The three complement each other: the agency brings the facts with neutrality, specialist journalism the depth and the community the view of those who build the technology. MyNews only shows headlines, short descriptions and links: the full story is always read on the original site.",
+  },
   dateline: (total, enriched) =>
     `${total} stories from Reuters, Ars Technica and Hacker News; Gemini has summarised and translated ${enriched}.`,
-  digestNote: (time) => `Overview written by Gemini at ${time} from the most relevant stories.`,
+  digestKinds: { general: "General", world: "World", tech: "Technology" },
+  digestGroup: "Overview",
   important: "Today's essentials",
   latest: "Latest",
   filterSource: "Filter by source",

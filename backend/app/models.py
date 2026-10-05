@@ -208,15 +208,20 @@ class AIUsage(Base):
 
 
 class Digest(Base):
-    """Daily overview shown under the masthead: a few sentences summarising the most relevant
-    stories, written by Gemini in English and Spanish. A new row is added when it is refreshed."""
+    """Overview shown under the masthead: a few sentences summarising the most relevant stories,
+    written by Gemini in English and Spanish, in three flavours (general, world, tech). A new row
+    is added each time one is refreshed."""
 
     __tablename__ = "digests"
-    __table_args__ = (Index("ix_digests_created_at", "created_at"),)
+    __table_args__ = (Index("ix_digests_kind_created_at", "kind", "created_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(16), server_default="general")  # general | world | tech
     text_en: Mapped[str] = mapped_column(Text)
     text_es: Mapped[str] = mapped_column(Text)
+    # The same overview as 3-5 short points, for small screens where a paragraph is heavy going.
+    bullets_en: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
+    bullets_es: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
     article_ids: Mapped[list[int]] = mapped_column(ARRAY(Integer))
     model: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

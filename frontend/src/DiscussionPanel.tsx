@@ -1,6 +1,6 @@
 import { ArrowUp, Maximize2, MessageSquare, Minimize2, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Comments } from "./Comments";
 import { useDiscussion } from "./discussion";
 import { headline } from "./format";
@@ -8,6 +8,26 @@ import { useLang, useT } from "./i18n";
 import { useMediaQuery } from "./useMediaQuery";
 
 const SPRING = { type: "spring", stiffness: 420, damping: 42, mass: 0.9 } as const;
+const FADE_OUT_MS = 90;
+const MORPH_MS = 460;
+const MORPH = { duration: MORPH_MS / 1000, ease: [0.32, 0.72, 0, 1] } as const; // Apple-like glide
+
+/** Left edge and width of the floating panel, docked or full screen, tracking the window size. */
+function useSideGeometry(enabled: boolean, fullscreen: boolean) {
+  const [vw, setVw] = useState(() => (typeof window === "undefined" ? 1440 : window.innerWidth));
+  useEffect(() => {
+    if (!enabled) return;
+    const onResize = () => setVw(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [enabled]);
+  const rem = 16;
+  const inset = 0.75 * rem;
+  const docked = Math.min(Math.max(22 * rem, 0.3 * vw), 27 * rem); // matches --peek-w
+  return fullscreen
+    ? { left: inset, width: vw - inset * 2 }
+    : { left: vw - inset - docked, width: docked };
+}
 
 /**
  * Hacker News discussion in a floating, non-modal panel: no backdrop and no focus trap, so the
@@ -24,18 +44,35 @@ export function DiscussionPanel() {
   const bodyRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
   const open = Boolean(active && active.hn_story_id != null);
+  // Full screen on wide screens: the text fades out, the browser stops laying it out
+  // (content-visibility), the panel's real box glides to its new position and width, and the
+  // text fades back in. Nothing is scaled, so shadow, border and corners stay crisp.
+  const [phase, setPhase] = useState<"idle" | "fading" | "moving">("idle");
+  const changeFullscreen = useCallback((value: boolean) => {
+    if (compact) {
+      setFullscreen(value);
+      return;
+    }
+    setPhase("fading");
+    window.setTimeout(() => {
+      setPhase("moving");
+      setFullscreen(value);
+      window.setTimeout(() => setPhase("idle"), MORPH_MS - 80); // text returns during the last stretch
+    }, FADE_OUT_MS);
+  }, [compact, setFullscreen]);
+  const box = useSideGeometry(!compact, fullscreen);
 
   // Esc leaves full screen first, then closes, from anywhere on the page.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (fullscreen) setFullscreen(false);
+      if (fullscreen) changeFullscreen(false);
       else close();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, close, fullscreen, setFullscreen]);
+  }, [open, close, fullscreen, changeFullscreen]);
 
   // On open or thread switch: remember what opened it, move focus to the title, start at the top.
   useEffect(() => {
@@ -67,20 +104,25 @@ export function DiscussionPanel() {
           data-layout={compact ? "sheet" : "side"}
           data-fullscreen={fullscreen || undefined}
           aria-labelledby="discussion-title"
-          layout={!compact}
           style={{ borderRadius: compact ? undefined : 14, viewTransitionName: "discussion" }}
-          initial={hidden}
-          animate={shown}
+          initial={compact ? hidden : { ...hidden, ...box }}
+          animate={compact ? shown : { ...shown, ...box }}
           exit={hidden}
-          transition={{ ...SPRING, layout: { type: "spring", stiffness: 360, damping: 38 } }}
+          transition={{ ...SPRING, left: MORPH, width: MORPH }}
         >
           {compact && (
-            <button className="sheet-handle" onClick={() => setFullscreen(!fullscreen)}
+            <button className="sheet-handle" onClick={() => changeFullscreen(!fullscreen)}
                     aria-label={fullscreen ? t.collapsePanel : t.expandPanel} aria-expanded={fullscreen}>
               <span />
             </button>
           )}
-          <motion.header layout={!compact ? "position" : false} className="panel-head">
+          <motion.div
+            className="panel-content"
+            data-phase={phase}
+            animate={{ opacity: phase === "idle" ? 1 : 0 }}
+            transition={{ duration: phase === "idle" ? 0.24 : FADE_OUT_MS / 1000, ease: "easeOut" }}
+          >
+          <header className="panel-head">
             <div className="panel-heading">
               <p className="panel-kind">{t.discussionTitle}</p>
               <h2 id="discussion-title" ref={headingRef} tabIndex={-1} className="headline">{headline(active, lang)}</h2>
@@ -92,7 +134,7 @@ export function DiscussionPanel() {
               </p>
             </div>
             <div className="panel-actions">
-              <button className="icon-button" onClick={() => setFullscreen(!fullscreen)}
+              <button className="icon-button" onClick={() => changeFullscreen(!fullscreen)}
                       aria-label={fullscreen ? t.collapsePanel : t.expandPanel} aria-pressed={fullscreen}
                       title={fullscreen ? t.collapsePanel : t.expandPanel}>
                 <FullscreenIcon aria-hidden size={16} />
@@ -101,14 +143,15 @@ export function DiscussionPanel() {
                 <X aria-hidden size={18} />
               </button>
             </div>
-          </motion.header>
-          <motion.div layout={!compact ? "position" : false} className="panel-body" ref={bodyRef}>
+          </header>
+          <div className="panel-body" ref={bodyRef}>
             <AnimatePresence mode="wait">
               <motion.div key={active.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                           transition={{ duration: 0.14 }}>
                 <Comments articleId={active.id} storyId={active.hn_story_id} />
               </motion.div>
             </AnimatePresence>
+          </div>
           </motion.div>
         </motion.aside>
       )}

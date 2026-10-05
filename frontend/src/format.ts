@@ -92,3 +92,19 @@ export function mergeFresh(current: Article[], fresh: Article[], ranked: boolean
   const kept = current.filter((a) => !freshIds.has(a.id) && time(a) < oldestFresh);
   return [...fresh, ...kept].sort((a, b) => time(b) - time(a));
 }
+
+/**
+ * Bullet points for an overview: Gemini's own when present, otherwise the paragraph split into
+ * sentences. A split after a short capitalised abbreviation ("EE. UU.", "Sr.") is undone.
+ */
+export function toBullets(text: string, given?: string[]): string[] {
+  if (given && given.length > 1) return given;
+  const parts = text.split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ¿¡"«(])/u);
+  const merged: string[] = [];
+  for (const part of parts) {
+    const prev = merged.at(-1);
+    if (prev && /(^|\s)\p{Lu}{1,3}\.$/u.test(prev)) merged[merged.length - 1] = `${prev} ${part}`;
+    else merged.push(part);
+  }
+  return merged.map((s) => s.trim().replace(/\.$/, "")).filter(Boolean);
+}

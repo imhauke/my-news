@@ -11,6 +11,7 @@ from app.api.comments_tree import build_tree
 from app.api.session import ensure_session, optional_user, required_user
 from app.config import get_settings
 from app.db import get_session
+from app.enrich.digest import KINDS as DIGEST_KINDS
 from app.enrich.translate import translate_comments
 from app.ingest.fetch import make_client
 from app.ingest.jobs import fetch_story_comments
@@ -133,10 +134,15 @@ async def important(
     return await _out(session, user, picked)
 
 
-@router.get("/digest", response_model=DigestOut | None)
-async def digest(session: Session) -> Digest | None:
-    """Latest overview of the day, or null if none has been written yet."""
-    return await session.scalar(select(Digest).order_by(Digest.created_at.desc()).limit(1))
+@router.get("/digest", response_model=dict[str, DigestOut | None])
+async def digest(session: Session) -> dict[str, Digest | None]:
+    """Latest overview of each kind (general, world, tech); null where none exists yet."""
+    return {
+        kind: await session.scalar(
+            select(Digest).where(Digest.kind == kind).order_by(Digest.created_at.desc()).limit(1)
+        )
+        for kind in DIGEST_KINDS
+    }
 
 
 @router.get("/articles/{article_id}", response_model=ArticleOut)

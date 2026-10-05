@@ -1,4 +1,4 @@
-import type { Article, CommentNode, Digest, Feedback, Lang, Metrics, Source } from "./types";
+import type { Article, CommentNode, Digests, Feedback, Lang, Metrics, Source } from "./types";
 
 const BASE = import.meta.env.VITE_API_BASE ?? "/api";
 export const PAGE_SIZE = 30;
@@ -27,7 +27,7 @@ export const fetchLatest = ({ source, section, before, offset }: LatestQuery = {
 
 export const fetchImportant = () => request<Article[]>("/feed/important?limit=5");
 export const fetchMetrics = () => request<Metrics>("/metrics");
-export const fetchDigest = () => request<Digest | null>("/digest");
+export const fetchDigests = () => request<Digests>("/digest");
 export const fetchComments = (articleId: number, lang: Lang) =>
   request<CommentNode[]>(`/articles/${articleId}/comments?lang=${lang}`);
 

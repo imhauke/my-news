@@ -37,15 +37,19 @@ class FakeAI:
 
     async def generate_json(self, prompt, schema, **kw):
         self.prompts.append(prompt)
-        return DigestOut(summary_en="Today the main stories are " + "x" * 40, summary_es="Hoy destaca " + "y" * 40)
+        return DigestOut(summary_en="Today the main stories are " + "x" * 40, summary_es="Hoy destaca " + "y" * 40,
+                         bullets_en=["• Brazil heads to a runoff.", " "], bullets_es=["- Brasil irá a segunda vuelta."])
+
+
+SECTION = {"reuters": "world", "ars": "ai", "hn": "front"}
 
 
 @pytest.fixture
 async def stories(session, monkeypatch):
     rows = [
         Article(source=src, external_id=f"{src}{i}", url=f"https://a.test/{src}{i}", url_normalized=f"a.test/{src}{i}",
-                title=f"{src} story {i}", published_at=NOW - timedelta(hours=1), global_score=0.9 - i / 100,
-                ai_summary_en=f"Description {i}")
+                title=f"{src} story {i}", section=SECTION[src], published_at=NOW - timedelta(hours=1),
+                global_score=0.9 - i / 100, ai_summary_en=f"Description {i}")
         for src in ("reuters", "ars", "hn") for i in range(7)
     ]
     session.add_all(rows)
@@ -54,29 +58,40 @@ async def stories(session, monkeypatch):
     return rows
 
 
-async def test_refresh_writes_a_balanced_digest_once(session, stories):
+async def test_refresh_writes_each_kind_once_with_its_own_scope(session, stories):
     ai = FakeAI()
-    assert await digest.refresh_digest(ai, now=NOW) is True
-    saved = await session.scalar(select(Digest))
-    assert saved.text_es.startswith("Hoy destaca") and len(saved.article_ids) == digest.TOP_STORIES
-    picked = [a for a in stories if a.id in saved.article_ids]
-    assert max(sum(a.source == s for a in picked) for s in ("reuters", "ars", "hn")) <= digest.PER_SOURCE_CAP
-    assert "Description 0" in ai.prompts[0]
-    assert await digest.refresh_digest(ai, now=NOW + timedelta(minutes=5)) is False  # not due yet
-    assert len(ai.prompts) == 1
+    assert await digest.refresh_digest(ai, now=NOW) == 3
+    saved = {d.kind: d for d in (await session.scalars(select(Digest))).all()}
+    assert set(saved) == {"general", "world", "tech"}
+    by_id = {a.id: a for a in stories}
+
+    general = [by_id[i] for i in saved["general"].article_ids]
+    assert len(general) == digest.TOP_STORIES
+    assert max(sum(a.source == s for a in general) for s in ("reuters", "ars", "hn")) <= digest.PER_SOURCE_CAP
+    assert {by_id[i].source for i in saved["world"].article_ids} == {"reuters"}
+    assert {by_id[i].source for i in saved["tech"].article_ids} == {"ars", "hn"}
+    assert any("Focus on geopolitics" in p for p in ai.prompts)
+    assert saved["general"].bullets_en == ["Brazil heads to a runoff"]  # cleaned: no marker, no period
+    assert saved["general"].bullets_es == ["Brasil irá a segunda vuelta"]
+
+    assert await digest.refresh_digest(ai, now=NOW + timedelta(minutes=5)) == 0  # none due yet
+    assert len(ai.prompts) == 3
 
 
-async def test_falls_back_to_the_lite_model(session, stories):
+async def test_falls_back_to_the_lite_model(session, stories, monkeypatch):
     from app.ai.base import AIError
 
     class Overloaded(FakeAI):
         async def generate_json(self, prompt, schema, model, **kw):
             self.prompts.append(model)
             if model == digest.get_settings().gemini_model_flash:
-                raise AIError("Gemini 503 after 5 attempts")
+                raise AIError("Gemini 429 after 5 attempts")
             return await super().generate_json(prompt, schema, **kw)
 
+    monkeypatch.setattr(digest, "_flash_paused_until", digest.datetime.min.replace(tzinfo=UTC))
     ai = Overloaded()
-    assert await digest.refresh_digest(ai, now=NOW) is True
-    saved = await session.scalar(select(Digest))
-    assert saved.model == digest.get_settings().gemini_model_lite
+    assert await digest.refresh_digest(ai, now=NOW) == 3
+    models = {d.model for d in (await session.scalars(select(Digest))).all()}
+    assert models == {digest.get_settings().gemini_model_lite}
+    # after the first 429, Flash is not tried again for the other two kinds
+    assert ai.prompts.count(digest.get_settings().gemini_model_flash) == 1

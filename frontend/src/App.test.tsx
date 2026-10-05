@@ -45,13 +45,24 @@ describe("App", () => {
       "/feed/important": [lead],
       "/feed/latest": [hn],
       "/metrics": { articles_total: 240, articles_enriched: 240, last_ingest_at: null },
-      "/digest": { text_es: "Hoy destaca la segunda vuelta en Brasil.", text_en: "Brazil heads to a runoff.",
+      "/digest": {
+        general: { kind: "general", text_es: "Hoy destaca la segunda vuelta en Brasil.", text_en: "Brazil heads to a runoff.",
                    article_ids: [2], created_at: "2026-10-05T12:00:00Z" },
+        world: null,
+        tech: { kind: "tech", text_es: "En tecnología, Rust 2.0.", text_en: "In tech, Rust 2.0.",
+                article_ids: [1], created_at: "2026-10-05T12:00:00Z" },
+      },
     });
     render(<App />);
     const important = await screen.findByRole("region", { name: "Lo importante hoy" });
     expect(within(important).getByRole("link", { name: "Se reanudan las conversaciones en Ginebra" })).toBeInTheDocument();
-    expect(await screen.findByText("Hoy destaca la segunda vuelta en Brasil.")).toBeInTheDocument();
+    expect(await screen.findByText("Hoy destaca la segunda vuelta en Brasil.")).toBeVisible();
+    // only overviews that exist are offered; switching shows the other text
+    const kinds = screen.getByRole("group", { name: "Tipo de resumen" });
+    expect(within(kinds).queryByRole("button", { name: "Mundo" })).not.toBeInTheDocument();
+    fireEvent.click(within(kinds).getByRole("button", { name: "Tecnología" }));
+    expect(screen.getByText("En tecnología, Rust 2.0.").closest(".digest-text")).toHaveAttribute("data-active");
+    expect(localStorage.getItem("mynews.digest")).toBe("tech");
     expect(within(important).getByText("Mundo")).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "Sale Rust 2.0" })).toHaveAttribute("href", hn.url);
     expect(screen.getByText("Rust publica una nueva versión mayor.")).toBeInTheDocument();
@@ -176,6 +187,23 @@ describe("App", () => {
     expect(await screen.findByRole("link", { name: "Noticia nueva" })).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Sale Rust 2.0" })).toHaveLength(1);
     vi.useRealTimers();
+  });
+
+  it("links the author's pages in the footer and explains the sources in a dialog", async () => {
+    mockApi({});
+    HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) { this.open = true; };
+    render(<App />);
+    const links = screen.getByRole("navigation", { name: "Enlaces" });
+    expect(within(links).getByRole("link", { name: /GitHub/ })).toHaveAttribute("href", "https://github.com/imhauke/my-news");
+    expect(within(links).getByRole("link", { name: /janguzman\.com/ })).toHaveAttribute("href", "https://janguzman.com");
+    expect(screen.queryByRole("link", { name: /Código/ })).not.toBeInTheDocument(); // no longer in the masthead
+
+    fireEvent.click(within(links).getByRole("button", { name: "Nuestras fuentes" }));
+    const dialog = await screen.findByRole("dialog", { name: "Nuestras fuentes" });
+    for (const name of ["Reuters", "Ars Technica", "Hacker News"]) {
+      expect(within(dialog).getByRole("heading", { name })).toBeInTheDocument();
+    }
+    expect(within(dialog).getByText(/imparcialidad/)).toBeInTheDocument();
   });
 
   it("explains the failure and offers a retry when the API fails", async () => {

@@ -1,30 +1,29 @@
 import { Monitor, Moon, Sun } from "lucide-react";
 import { motion } from "motion/react";
-import { clockTime, formatNumber, todayLine } from "./format";
+import { formatNumber, toBullets, todayLine } from "./format";
 import { useLang, useT } from "./i18n";
 import { EASE_OUT, entrance } from "./motion";
 import { SegmentedControl } from "./SegmentedControl";
-import type { Digest, Lang, Metrics, Theme } from "./types";
-
-function GithubMark() {
-  return (
-    <svg aria-hidden width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-    </svg>
-  );
-}
+import type { DigestKind, Digests, Lang, Metrics, Theme } from "./types";
 
 interface Props {
   metrics: Metrics | null;
-  digest: Digest | null;
+  digests: Digests;
+  digestKind: DigestKind;
+  onDigestKind: (k: DigestKind) => void;
   onLang: (l: Lang) => void;
   theme: Theme;
   onTheme: (t: Theme) => void;
 }
 
-export function Masthead({ metrics, digest, onLang, theme, onTheme }: Props) {
+const DIGEST_KINDS: DigestKind[] = ["general", "world", "tech"];
+
+export function Masthead({ metrics, digests, digestKind, onDigestKind, onLang, theme, onTheme }: Props) {
   const lang = useLang();
   const t = useT();
+  const available = DIGEST_KINDS.filter((k) => digests[k]);
+  const kind = available.includes(digestKind) ? digestKind : available[0] ?? "general";
+  const current = digests[kind] ?? null;
   const themes: { value: Theme; label: string; Icon: typeof Sun }[] = [
     { value: "light", label: t.themeLight, Icon: Sun },
     { value: "dark", label: t.themeDark, Icon: Moon },
@@ -52,21 +51,43 @@ export function Masthead({ metrics, digest, onLang, theme, onTheme }: Props) {
             onChange={onTheme}
             segments={themes.map(({ value, label, Icon }) => ({ value, ariaLabel: label, label: <Icon aria-hidden size={15} /> }))}
           />
-          <a className="repo-link" href="https://github.com/imhauke/my-news" target="_blank" rel="noopener noreferrer">
-            <GithubMark /> {t.code}
-          </a>
         </div>
       </div>
-      <p className="dateline">
+      <div className="dateline">
         <time>{todayLine(lang)}</time>
-        {!digest && metrics && metrics.articles_total > 0 && (
+        {available.length > 1 && (
+          <SegmentedControl
+            id="digest"
+            size="small"
+            label={t.digestGroup}
+            value={kind}
+            onChange={onDigestKind}
+            segments={available.map((k) => ({ value: k, label: t.digestKinds[k] }))}
+          />
+        )}
+        {!current && metrics && metrics.articles_total > 0 && (
           <span>{t.dateline(formatNumber(metrics.articles_total, lang), formatNumber(metrics.articles_enriched, lang))}</span>
         )}
-      </p>
-      {digest && (
+      </div>
+      {current && (
         <div className="digest">
-          <p className="digest-text" lang={lang}>{lang === "es" ? digest.text_es : digest.text_en}</p>
-          <p className="digest-note">{t.digestNote(clockTime(digest.created_at, lang))}</p>
+          {/* All overviews share one cell: it takes the height of the longest, so switching
+              between them cross-fades without moving anything below. */}
+          <div className="digest-stack">
+            {available.map((k) => {
+              const d = digests[k]!;
+              const text = lang === "es" ? d.text_es : d.text_en;
+              return (
+                <div key={k} className="digest-text" lang={lang} data-active={k === kind || undefined} aria-hidden={k !== kind}>
+                  {/* Paragraph in two columns on wide screens; short points on phones. */}
+                  <p className="digest-paragraph">{text}</p>
+                  <ul className="digest-bullets">
+                    {toBullets(text, lang === "es" ? d.bullets_es : d.bullets_en).map((b) => <li key={b}>{b}</li>)}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </motion.header>
