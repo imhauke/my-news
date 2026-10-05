@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
     log_level: str = "INFO"
     scheduler_enabled: bool = True
+    refresh_minutes: int = 5  # sources, enrichment and live HN threads are refreshed this often
     cookie_secure: bool = False
 
     # Gemini (free tier)

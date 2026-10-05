@@ -22,8 +22,8 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; MyNews/0.1; +https://github.c
 
 
 def _readable(article: Article) -> bool:
-    """Reuters arrives through Google News links that cannot be resolved without JavaScript, and
-    Ask HN posts link to the thread itself: neither has an article page to read."""
+    """Reuters article pages reject automated requests (HTTP 401), and Ask HN posts link to the
+    thread itself: neither has an article page to read."""
     return article.source != "reuters" and not article.url.startswith("https://news.ycombinator.com/")
 
 
@@ -50,7 +50,7 @@ async def fetch_article_texts(articles: list[Article]) -> dict[int, str]:
 
 async def fetch_meta_descriptions(limit: int = 60) -> None:
     """For HN (and any source without an excerpt), reads og:description from the linked page.
-    Reuters arrives via Google News links that cannot be resolved without JS, so it is skipped."""
+    Reuters article pages reject automated requests (HTTP 401), so it is skipped."""
     cfg = get_settings()
     async with SessionLocal() as session:
         articles = (await session.execute(
@@ -129,7 +129,7 @@ async def enrich_articles(ai: AIClient | None = None, *, read_articles: bool = T
                     continue  # id invented or repeated by the model
                 seen.add(article.id)
                 article.title_es = item.title_es.strip()
-                # Without an excerpt or article text (Reuters via Google News) the model could only
+                # Without an excerpt or article text (Reuters pages are not readable) the model could only
                 # restate the headline, so no description is stored.
                 has_context = bool(article.summary or bodies.get(article.id))
                 article.ai_summary_en = (item.summary_en.strip() or None) if has_context else None

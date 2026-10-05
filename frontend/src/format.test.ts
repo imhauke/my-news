@@ -1,4 +1,4 @@
-import { description, groupByDay, headline, timeAgo } from "./format";
+import { description, groupByDay, headline, mergeFresh, timeAgo } from "./format";
 import type { Article } from "./types";
 
 const now = new Date("2026-10-05T12:00:00");
@@ -40,5 +40,32 @@ describe("headline and description", () => {
     expect(headline({ ...a, title_es: null }, "es")).toBe("Hi");
     expect(description(a, "es")).toBe("es");
     expect(description(a, "en")).toBe("raw");
+  });
+});
+
+describe("mergeFresh", () => {
+  const at = (id: number, hour: number, extra: Partial<Article> = {}) =>
+    art(id, `2026-10-05T${String(hour).padStart(2, "0")}:00:00Z`, extra);
+
+  it("replaces the first page, so removed and re-dated stories are reflected", () => {
+    const current = [at(1, 9), at(2, 8), at(3, 7)];
+    const fresh = [at(3, 10, { title: "updated" }), at(4, 9), at(1, 9)];
+    expect(mergeFresh(current, fresh, false, 30).map((a) => a.id)).toEqual([3, 4, 1]);
+  });
+
+  it("merges into a longer list: re-sorts, updates and drops stories that disappeared", () => {
+    const current = [at(1, 9), at(2, 8), at(3, 7), at(4, 3), at(5, 2)];
+    const fresh = [at(3, 10, { hn_points: 9 }), at(6, 9), at(1, 9), at(7, 8)];
+    const merged = mergeFresh(current, fresh, false, 2);
+    // 2 falls inside the fresh page's time range but is gone from it: removed upstream.
+    // 4 and 5 are older than anything in the fresh page, so they stay.
+    expect(merged.map((a) => a.id)).toEqual([3, 6, 1, 7, 4, 5]);
+    expect(merged[0].hn_points).toBe(9);
+  });
+
+  it("keeps deeper pages of a ranked list untouched", () => {
+    const twoPages = [at(1, 1), at(2, 1), at(3, 1)];
+    expect(mergeFresh(twoPages, [at(3, 1)], true, 2)).toBe(twoPages);
+    expect(mergeFresh([at(1, 1)], [at(2, 1)], true, 30).map((a) => a.id)).toEqual([2]);
   });
 });

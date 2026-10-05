@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url><loc>https://www.reuters.com/world/europe/spanish-pm-sanchez-2026-10-05/</loc>
+    <news:news><news:publication><news:name>Reuters</news:name><news:language>en</news:language></news:publication>
+      <news:publication_date>2026-10-05T08:45:12.000Z</news:publication_date>
+      <news:title><![CDATA[Spanish PM Sanchez gambles on November 29 snap election]]></news:title></news:news></url>
+  <url><loc>https://www.reuters.com/es/negocio/eurozona-2026-10-05/</loc>
+    <news:news><news:publication><news:name>Reuters</news:name><news:language>en</news:language></news:publication>
+      <news:publication_date>2026-10-05T08:44:00.000Z</news:publication_date>
+      <news:title><![CDATA[El crecimiento empresarial de la eurozona]]></news:title></news:news></url>
+  <url><loc>https://www.reuters.com/markets/europe/sentix-2026-10-05/</loc>
+    <news:news><news:publication><news:name>Reuters</news:name><news:language>en</news:language></news:publication>
+      <news:publication_date>2026-10-05T08:34:00.000Z</news:publication_date>
+      <news:title><![CDATA[Euro zone investor morale falls in October]]></news:title></news:news></url>
+  <url><loc>https://www.reuters.com/technology/chips-2026-10-05/</loc>
+    <news:news><news:publication><news:name>Reuters</news:name><news:language>en</news:language></news:publication>
+      <news:publication_date>2026-10-05T08:30:00.000Z</news:publication_date>
+      <news:title>Chipmaker shares jump &amp;amp; AI demand grows</news:title></news:news></url>
+</urlset>

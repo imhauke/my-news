@@ -1,9 +1,11 @@
 """Pure per-source parsers. They take the raw response so they can be tested with recorded fixtures."""
 
 import calendar
+import html
 import re
 from datetime import UTC, date, datetime
-from urllib.parse import quote
+from urllib.parse import urlsplit
+from xml.etree import ElementTree
 
 import feedparser
 
@@ -18,15 +20,13 @@ ARS_FEEDS = {
     "security": ["https://arstechnica.com/security/feed/"],
 }
 
-# Reuters has no RSS: Google News filtered by path. The /technology path only returns a few stories
-# per week, so it is complemented with a search on technology terms.
-REUTERS_QUERIES = {
-    "world": ["site:reuters.com/world when:2d"],
-    "technology": [
-        "site:reuters.com/technology when:7d",
-        'site:reuters.com (AI OR semiconductors OR chipmaker OR software OR cybersecurity OR "big tech") when:2d',
-    ],
-}
+# Reuters has no RSS. Its news sitemap (listed in robots.txt for every crawler) is near real time
+# and carries the canonical URL, whose first path segment is the site section. Each page holds 50
+# entries (about an hour); three pages per refresh leave margin if the worker was down for a while.
+REUTERS_SITEMAP_URL = "https://www.reuters.com/arc/outboundfeeds/news-sitemap/?outputType=xml&from={offset}"
+REUTERS_SITEMAP_PAGES = 3
+REUTERS_PAGE_SIZE = 50
+REUTERS_SECTIONS = ("world", "technology")
 
 # /front: the stories that made the front page on a given day. It is HN's summary of the day;
 # the live front page is too noisy. robots.txt asks for 30 s between requests.
@@ -35,8 +35,8 @@ HN_ITEM_URL = "https://hacker-news.firebaseio.com/v0/item/{id}.json"
 ALGOLIA_ITEM_URL = "https://hn.algolia.com/api/v1/items/{id}"
 
 
-def reuters_feed_url(query: str) -> str:
-    return f"https://news.google.com/rss/search?q={quote(query)}&hl=en-US&gl=US&ceid=US:en"
+def reuters_sitemap_urls() -> list[str]:
+    return [REUTERS_SITEMAP_URL.format(offset=i * REUTERS_PAGE_SIZE) for i in range(REUTERS_SITEMAP_PAGES)]
 
 
 _FRONT_ID = re.compile(r'<tr class="athing submission" id="(\d+)"')
@@ -72,15 +72,24 @@ def parse_ars_feed(xml: str, section: str) -> list[ParsedArticle]:
     return out
 
 
-def parse_reuters_feed(xml: str, section: str) -> list[ParsedArticle]:
+_NS = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9", "news": "http://www.google.com/schemas/sitemap-news/0.9"}
+
+
+def parse_reuters_sitemap(xml: str) -> list[ParsedArticle]:
+    """Stories from Reuters' news sitemap in the sections we follow. The section is the first path
+    segment, exactly as on reuters.com, so translations (/es/, /de/…), markets or sports are left out.
+    publication_date moves forward when Reuters updates a story, like the "15 mins ago" on the site."""
     out = []
-    for e in feedparser.parse(xml).entries:
-        title = re.sub(r"\s+-\s+Reuters$", "", e.get("title", "")).strip()
-        if not e.get("link") or not title:
+    for url in ElementTree.fromstring(xml).iterfind("sm:url", _NS):
+        loc = (url.findtext("sm:loc", "", _NS) or "").strip()
+        title = html.unescape(url.findtext("news:news/news:title", "", _NS) or "").strip()
+        published = url.findtext("news:news/news:publication_date", "", _NS)
+        section = urlsplit(loc).path.strip("/").split("/")[0]
+        if section not in REUTERS_SECTIONS or not title or not published:
             continue
         out.append(ParsedArticle(
-            source="reuters", external_id=e.get("id") or e.link, url=e.link, title=title,
-            published_at=_entry_datetime(e), summary=None, section=section,
+            source="reuters", external_id=urlsplit(loc).path, url=loc, title=title,
+            published_at=datetime.fromisoformat(published.replace("Z", "+00:00")), section=section,
         ))
     return out
 

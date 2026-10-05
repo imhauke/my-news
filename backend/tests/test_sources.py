@@ -14,9 +14,16 @@ def test_parse_ars_feed_skips_entries_without_title():
     assert a.summary == "Rules changed (https://x.test)."
 
 
-def test_parse_reuters_strips_suffix():
-    [a] = sources.parse_reuters_feed((FIX / "reuters.xml").read_text(), "geopolitics")
-    assert a.title == "Talks resume in Geneva" and a.source == "reuters"
+def test_parse_reuters_sitemap_keeps_followed_sections_only():
+    items = sources.parse_reuters_sitemap((FIX / "reuters_sitemap.xml").read_text())
+    assert [(a.section, a.title) for a in items] == [
+        ("world", "Spanish PM Sanchez gambles on November 29 snap election"),
+        ("technology", "Chipmaker shares jump & AI demand grows"),
+    ]
+    world = items[0]
+    assert world.url == "https://www.reuters.com/world/europe/spanish-pm-sanchez-2026-10-05/"
+    assert world.external_id == "/world/europe/spanish-pm-sanchez-2026-10-05/"
+    assert world.published_at.isoformat() == "2026-10-05T08:45:12+00:00"
 
 
 def test_parse_hn_item_keeps_front_stories_and_skips_non_stories():
@@ -45,8 +52,8 @@ def test_parse_hn_front_ids_in_order():
 
 def test_feeds_cover_requested_sections():
     assert set(sources.ARS_FEEDS) == {"ai", "biz-it", "security"}
-    assert set(sources.REUTERS_QUERIES) == {"world", "technology"}
-    assert "site%3Areuters.com/world" in sources.reuters_feed_url(sources.REUTERS_QUERIES["world"][0])
+    assert sources.REUTERS_SECTIONS == ("world", "technology")
+    assert [u.rsplit("=", 1)[1] for u in sources.reuters_sitemap_urls()] == ["0", "50", "100"]
 
 
 def test_flatten_algolia_tree():

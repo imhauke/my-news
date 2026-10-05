@@ -18,9 +18,9 @@ def test_never_fetched_is_always_stale():
     assert _comments_stale(story(100), NOW)
 
 
-def test_live_thread_refreshes_after_ten_minutes():
-    assert not _comments_stale(story(3, fetched_minutes_ago=5), NOW)
-    assert _comments_stale(story(3, fetched_minutes_ago=15), NOW)
+def test_live_thread_refreshes_after_five_minutes():
+    assert not _comments_stale(story(3, fetched_minutes_ago=4), NOW)
+    assert _comments_stale(story(3, fetched_minutes_ago=6), NOW)
 
 
 def test_frozen_thread_is_not_refetched():

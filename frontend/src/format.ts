@@ -74,3 +74,21 @@ export function groupByFrontDay(articles: Article[], lang: Lang) {
   }
   return groups;
 }
+
+/**
+ * Brings the list on screen up to date with a freshly fetched first page.
+ * While only the first page is loaded it is simply replaced, so updated, re-dated or removed
+ * stories are reflected exactly. With more pages loaded, the fresh page is merged in: stories are
+ * updated, re-sorted by date (a story Reuters updates moves up), and anything newer than the fresh
+ * page's oldest story that is no longer in it is dropped. Deeper pages of a ranked list (HN /front)
+ * are kept as they are.
+ */
+export function mergeFresh(current: Article[], fresh: Article[], ranked: boolean, pageSize: number): Article[] {
+  if (current.length <= pageSize) return fresh;
+  if (ranked || fresh.length === 0) return current;
+  const time = (a: Article) => new Date(a.published_at).getTime();
+  const freshIds = new Set(fresh.map((a) => a.id));
+  const oldestFresh = Math.min(...fresh.map(time));
+  const kept = current.filter((a) => !freshIds.has(a.id) && time(a) < oldestFresh);
+  return [...fresh, ...kept].sort((a, b) => time(b) - time(a));
+}

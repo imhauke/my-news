@@ -13,6 +13,8 @@ from app.models import Article, HNComment
 
 log = structlog.get_logger()
 DEDUP_WINDOW = timedelta(days=3)
+# Fields a later fetch may change: edited headlines, Reuters' update time, HN points and comments.
+UPDATABLE = ("title", "summary", "section", "published_at", "hn_points", "hn_comment_count")
 
 
 async def upsert_articles(session: AsyncSession, items: list[ParsedArticle]) -> dict[str, int]:
@@ -55,7 +57,7 @@ async def upsert_articles(session: AsyncSession, items: list[ParsedArticle]) -> 
         else:
             stats["updated"] += 1
         stmt = insert(Article).values(**values)
-        update_cols = {c: stmt.excluded[c] for c in ("title", "summary", "section", "hn_points", "hn_comment_count")}
+        update_cols = {c: stmt.excluded[c] for c in UPDATABLE}
         if a.hn_front_day:  # a story ranked again on a later /front keeps its latest position
             update_cols |= {"hn_front_day": stmt.excluded.hn_front_day, "hn_front_rank": stmt.excluded.hn_front_rank}
         article_id = (await session.execute(

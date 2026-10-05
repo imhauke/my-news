@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { PAGE_SIZE, ensureSession, fetchImportant, fetchLatest, fetchMetrics } from "./api";
 import { CommentsSheet } from "./CommentsSheet";
+import { mergeFresh } from "./format";
 import { DICTS, LangContext } from "./i18n";
 import { Important } from "./Important";
 import { Masthead } from "./Masthead";
@@ -15,6 +16,9 @@ function stored<T extends string>(key: string, allowed: readonly T[], fallback: 
     return fallback;
   }
 }
+
+/** How often the open page pulls fresh data while visible. The worker refreshes every 5 minutes. */
+export const POLL_MS = 60_000;
 
 function persist(key: string, value: string) {
   try { localStorage.setItem(key, value); } catch { /* no storage: the choice lasts for this visit only */ }
@@ -67,6 +71,34 @@ export default function App() {
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
   }, [filter, attempt, sessionReady]);
+
+  // Keep the page current: poll while visible, and catch up as soon as the tab is shown again.
+  useEffect(() => {
+    if (!sessionReady) return;
+    let lastRefresh = Date.now();
+    const refresh = async () => {
+      lastRefresh = Date.now();
+      fetchImportant().then(setImportant).catch(() => undefined);
+      fetchMetrics().then(setMetrics).catch(() => undefined);
+      try {
+        const fresh = await fetchLatest(filter);
+        setArticles((current) => mergeFresh(current, fresh, filter.source === "hn", PAGE_SIZE));
+      } catch {
+        /* keep what is on screen; the next tick retries */
+      }
+    };
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void refresh();
+    }, POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && Date.now() - lastRefresh >= POLL_MS) void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [filter, sessionReady]);
 
   const loadMore = useCallback(async () => {
     const last = articles.at(-1);

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { vi } from "vitest";
-import App from "./App";
+import App, { POLL_MS } from "./App";
 import type { Article } from "./types";
 
 const hn: Article = {
@@ -116,6 +116,23 @@ describe("App", () => {
     const important = await screen.findByRole("region", { name: "Lo importante hoy" });
     fireEvent.click(within(important).getByRole("button", { name: /42 comentarios/ }));
     expect(await screen.findByText("Este hilo todavía no tiene comentarios.")).toBeInTheDocument();
+  });
+
+  it("refreshes itself while visible, adding new stories on top", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let latest: Article[] = [hn];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.endsWith("/session")) return new Response(JSON.stringify({ user_id: 1 }));
+      return new Response(JSON.stringify(url.includes("/feed/latest") ? latest : []));
+    });
+    render(<App />);
+    await screen.findByRole("link", { name: "Sale Rust 2.0" });
+    latest = [{ ...hn, id: 5, title_es: "Noticia nueva" }, hn];
+    await vi.advanceTimersByTimeAsync(POLL_MS);
+    expect(await screen.findByRole("link", { name: "Noticia nueva" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Sale Rust 2.0" })).toHaveLength(1);
+    vi.useRealTimers();
   });
 
   it("explains the failure and offers a retry when the API fails", async () => {

@@ -36,7 +36,7 @@ COMMENTS_SQL = text("""
 """)
 
 
-COMMENTS_REFRESH = timedelta(minutes=10)
+COMMENTS_REFRESH = timedelta(minutes=5)
 THREAD_LIVE = timedelta(hours=48)
 
 

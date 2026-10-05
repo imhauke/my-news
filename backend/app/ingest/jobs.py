@@ -75,8 +75,8 @@ async def ingest_ars() -> None:
 
 
 async def ingest_reuters() -> None:
-    feeds = {name: [sources.reuters_feed_url(q) for q in qs] for name, qs in sources.REUTERS_QUERIES.items()}
-    await _ingest_feeds("reuters", feeds, sources.parse_reuters_feed)
+    await _ingest_feeds("reuters", {"sitemap": sources.reuters_sitemap_urls()},
+                        lambda xml, _section: sources.parse_reuters_sitemap(xml))
 
 
 async def refresh_hn_comments() -> None:
