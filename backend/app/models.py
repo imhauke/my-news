@@ -12,6 +12,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -55,7 +56,8 @@ class Article(Base):
     hn_front_rank: Mapped[int | None] = mapped_column(Integer)  # 1-based position on that page
     topics: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
     topics_es: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
-    global_score: Mapped[float | None] = mapped_column(Float)
+    global_score: Mapped[float | None] = mapped_column(Float)  # importance / 100 (stage 0)
+    score_version: Mapped[int] = mapped_column(SmallInteger, server_default="0")  # stage0.SCORE_VERSION
     duplicate_of: Mapped[int | None] = mapped_column(ForeignKey("articles.id"))
     enriched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     meta_fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

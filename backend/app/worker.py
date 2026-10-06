@@ -20,6 +20,7 @@ async def enrich_pipeline() -> None:
     """First the excerpt from the original page; then Gemini uses it as context."""
     await enrich.fetch_page_meta()
     await enrich.enrich_articles()
+    await enrich.rescore_recent()
 
 
 async def refresh() -> None:

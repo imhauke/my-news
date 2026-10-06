@@ -5,10 +5,11 @@ from typing import Annotated
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import StreamingResponse
-from sqlalchemy import and_, func, or_, select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import chat as story_chat
+from app import ranking
 from app.ai.base import AIClient
 from app.api.comments_tree import build_tree
 from app.api.session import ensure_session, forget, optional_user, required_user
@@ -119,22 +120,12 @@ async def latest(
 async def important(
     session: Session, user: MaybeUser, limit: Annotated[int, Query(ge=1, le=10)] = 5
 ) -> list[ArticleOut]:
-    """Today's essentials: non-personalised lane with the highest global relevance (stage 0).
-    HN comes from /front, which covers the previous day, so its window is 48 h."""
-    now = datetime.now(UTC)
-    recent = or_(
-        Article.published_at > now - timedelta(hours=24),
-        and_(Article.source == "hn", Article.published_at > now - timedelta(hours=48)),
-    )
-    q = (
-        select(Article)
-        .where(Article.duplicate_of.is_(None), Article.global_score.is_not(None), recent)
-        .order_by(Article.global_score.desc(), Article.published_at.desc())
-        .limit(limit * 6)
-    )
+    """Today's essentials: non-personalised lane with the most important stories of the last day,
+    ranked by app.ranking (Gemini's importance, coverage, HN points and freshness)."""
+    ranked = await ranking.rank_recent(session, datetime.now(UTC))
     # Source balance: at most half (rounded up) from any single source.
     per_source_cap, picked, counts = -(-limit // 2), [], {}
-    for a in (await session.execute(q)).scalars():
+    for a in ranked:
         if counts.get(a.source, 0) < per_source_cap:
             picked.append(a)
             counts[a.source] = counts.get(a.source, 0) + 1

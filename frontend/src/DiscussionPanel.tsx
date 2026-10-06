@@ -2,7 +2,7 @@ import { ArrowUp, Maximize2, MessageSquare, Minimize2, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Comments } from "./Comments";
-import { StoryChat } from "./StoryChat";
+import { StoryChat, focusesInputOnOpen } from "./StoryChat";
 import { useDiscussion } from "./discussion";
 import { headline } from "./format";
 import { useLang, useT } from "./i18n";
@@ -76,12 +76,12 @@ export function DiscussionPanel() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, close, fullscreen, changeFullscreen]);
 
-  // On open or switch: remember what opened it, move focus to the title (a chat focuses its text
-  // box instead), start at the top.
+  // On open or switch: remember what opened it, move focus to the title (with a mouse, a chat
+  // focuses its text box instead), start at the top.
   useEffect(() => {
     if (!active) return;
     if (!triggerRef.current && document.activeElement instanceof HTMLElement) triggerRef.current = document.activeElement;
-    if (!chat) headingRef.current?.focus({ preventScroll: true });
+    if (!chat || !focusesInputOnOpen()) headingRef.current?.focus({ preventScroll: true });
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
   }, [active, chat]);
 

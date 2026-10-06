@@ -1,7 +1,7 @@
 """Enrichment jobs: excerpt from the original page and stage 0 with Gemini."""
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import structlog
 from sqlalchemy import or_, select
@@ -11,7 +11,7 @@ from app.config import get_settings
 from app.db import SessionLocal
 from app.enrich.article_text import extract_article_text
 from app.enrich.meta import extract_description, extract_image
-from app.enrich.stage0 import SYSTEM, EnrichmentBatch, build_prompt
+from app.enrich.stage0 import SCORE_VERSION, EnrichmentBatch, ScoreBatch, build_prompt, rescore_prompt, system_prompt
 from app.ingest.fetch import make_client
 from app.models import Article
 
@@ -115,7 +115,7 @@ async def enrich_articles(ai: AIClient | None = None, *, read_articles: bool = T
             try:
                 result = await ai.generate_json(
                     prompt, EnrichmentBatch, model=cfg.gemini_model_lite, task="enrich",
-                    priority=Priority.ENRICHMENT, system=SYSTEM,
+                    priority=Priority.ENRICHMENT, system=system_prompt(datetime.now(UTC).date()),
                 )
             except QuotaExhausted:
                 log.warning("enrich_quota_exhausted", remaining=len(pending) - start)
@@ -137,9 +137,62 @@ async def enrich_articles(ai: AIClient | None = None, *, read_articles: bool = T
                 article.ai_summary_es = (item.summary_es.strip() or None) if has_context else None
                 article.topics = [t.strip().lower() for t in item.topics if t.strip()]
                 article.topics_es = [t.strip().lower() for t in item.topics_es if t.strip()]
-                article.global_score = item.global_score
+                article.global_score = item.importance / 100
+                article.score_version = SCORE_VERSION
                 article.enriched_at = now
                 done += 1
             await session.commit()
     log.info("enrich_done", enriched=done)
+    return done
+
+
+RESCORE_BATCH = 25
+RESCORE_WINDOW = timedelta(hours=48)
+
+
+async def rescore_recent(ai: AIClient | None = None) -> int:
+    """Re-rates the stories still eligible for the front lane that were scored with older
+    criteria (score_version), so a change to stage0.IMPORTANCE shows at once. Older stories keep
+    their score."""
+    cfg = get_settings()
+    if ai is None:
+        if not cfg.gemini_api_key:
+            return 0
+        from app.ai.factory import get_ai_client
+        ai = get_ai_client()
+    now = datetime.now(UTC)
+    done = 0
+    async with SessionLocal() as session:
+        stale = (await session.scalars(
+            select(Article).where(
+                Article.enriched_at.is_not(None), Article.duplicate_of.is_(None),
+                Article.score_version < SCORE_VERSION, Article.published_at > now - RESCORE_WINDOW,
+            ).order_by(Article.published_at.desc()).limit(MAX_PER_RUN)
+        )).all()
+        by_id = {a.id: a for a in stale}
+        for start in range(0, len(stale), RESCORE_BATCH):
+            batch = stale[start:start + RESCORE_BATCH]
+            prompt = build_prompt([
+                {"id": a.id, "source": a.source, "section": a.section, "title": a.title,
+                 "summary": a.ai_summary_en or a.summary}
+                for a in batch
+            ])
+            try:
+                result = await ai.generate_json(
+                    prompt, ScoreBatch, model=cfg.gemini_model_lite, task="rescore",
+                    priority=Priority.ENRICHMENT, system=rescore_prompt(now.date()),
+                )
+            except QuotaExhausted:
+                break
+            except AIError as exc:
+                log.warning("rescore_batch_failed", error=str(exc))
+                continue
+            for item in result.items:
+                if (article := by_id.get(item.id)) and article.score_version < SCORE_VERSION:
+                    article.global_score = item.importance / 100
+                    article.score_version = SCORE_VERSION
+                    done += 1
+            await session.commit()
+    if done:
+        log.info("rescore_done", rescored=done)
     return done

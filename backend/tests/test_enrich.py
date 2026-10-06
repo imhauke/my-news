@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select
@@ -6,7 +6,16 @@ from sqlalchemy import select
 from app.ai.base import AIError, QuotaExhausted
 from app.enrich import jobs
 from app.enrich.meta import extract_description, extract_image
-from app.enrich.stage0 import EnrichedItem, EnrichmentBatch, build_prompt
+from app.enrich.stage0 import (
+    SCORE_VERSION,
+    EnrichedItem,
+    EnrichmentBatch,
+    ScoreBatch,
+    ScoredItem,
+    build_prompt,
+    rescore_prompt,
+    system_prompt,
+)
 from app.models import Article
 
 NOW = datetime(2026, 10, 5, 8, tzinfo=UTC)
@@ -46,9 +55,9 @@ class FakeAI:
         return r
 
 
-def item(id_, score=0.5):
+def item(id_, importance=50):
     return EnrichedItem(id=id_, title_es=f"titular {id_}", summary_en=f"en {id_}", summary_es=f"es {id_}",
-                        topics=[" Chips ", ""], topics_es=["Chips "], global_score=score)
+                        topics=[" Chips ", ""], topics_es=["Chips "], importance=importance)
 
 
 @pytest.fixture
@@ -76,11 +85,12 @@ class _Reuse:
 
 async def test_enrich_writes_fields_and_ignores_unknown_ids(session, articles):
     ids = [a.id for a in articles]
-    ai = FakeAI([EnrichmentBatch(items=[item(ids[0], 0.9), item(ids[1]), item(9999)])])
+    ai = FakeAI([EnrichmentBatch(items=[item(ids[0], 90), item(ids[1]), item(9999)])])
     assert await jobs.enrich_articles(ai, read_articles=False) == 2
     first = await session.get(Article, ids[0])
     assert (first.ai_summary_en, first.ai_summary_es) == (f"en {ids[0]}", f"es {ids[0]}")
     assert (first.topics, first.topics_es, first.global_score) == (["chips"], ["chips"], 0.9)
+    assert first.score_version == SCORE_VERSION
     assert first.title_es == f"titular {ids[0]}"
     # The one the model skipped stays pending and is retried on the next run.
     pending = (await session.scalars(select(Article.id).where(Article.enriched_at.is_(None)))).all()
@@ -154,3 +164,26 @@ def test_extract_image_skips_cards_logos_and_icons():
     assert extract_image(page("/img/banner.svg"), "https://b.test") is None
     assert extract_image(page("/uploads/2026/10/protest-crowd.jpg"), "https://b.test") \
         == "https://b.test/uploads/2026/10/protest-crowd.jpg"
+
+
+async def test_rescore_updates_recent_stories_scored_with_old_criteria(session, articles):
+    old, current, aged = articles
+    for a in articles:
+        a.enriched_at, a.global_score = NOW, 0.8
+    current.score_version = SCORE_VERSION
+    aged.published_at = datetime.now(UTC) - timedelta(days=3)  # out of the front lane: left alone
+    old.published_at = current.published_at = datetime.now(UTC) - timedelta(hours=2)
+    await session.commit()
+    ai = FakeAI([ScoreBatch(items=[ScoredItem(id=old.id, importance=35), ScoredItem(id=current.id, importance=99)])])
+    assert await jobs.rescore_recent(ai) == 1
+    assert (old.global_score, old.score_version) == (0.35, SCORE_VERSION)
+    assert current.global_score == 0.8 and aged.score_version == 0
+    assert f"[id={old.id}]" in ai.prompts[0] and f"[id={aged.id}]" not in ai.prompts[0]
+
+
+def test_prompts_carry_the_date_and_the_rubric():
+    from datetime import date
+
+    text = system_prompt(date(2026, 10, 6))
+    assert "2026-10-06" in text and "90-100" in text and "{importance}" not in text and "{today}" not in text
+    assert "CEOs of Google" in rescore_prompt(date(2026, 10, 6))

@@ -18,6 +18,11 @@ const MAX_SENT_ANSWER = 4000;
 // Conversations last while the page is open, so closing the panel and coming back keeps them.
 const conversations = new Map<number, Message[]>();
 
+/** With a mouse the text box takes focus on open; on touch screens that would pop up the
+ *  keyboard over the suggestions, so the reader taps the box when they want to type. */
+export const focusesInputOnOpen = () =>
+  typeof matchMedia !== "undefined" && matchMedia("(hover: hover) and (pointer: fine)").matches;
+
 /** Answers use a tiny subset of Markdown: paragraphs, "- " lists and **bold**. */
 function inline(text: string): ReactNode[] {
   return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
@@ -58,7 +63,7 @@ export function StoryChat({ article }: { article: Article }) {
 
   useEffect(() => { conversations.set(article.id, messages); }, [article.id, messages]);
   useEffect(() => () => abort.current?.abort(), []);
-  useEffect(() => { input.current?.focus({ preventScroll: true }); }, []);
+  useEffect(() => { if (focusesInputOnOpen()) input.current?.focus({ preventScroll: true }); }, []);
 
   // The panel body is the scroller: keep the newest text in view unless the reader scrolled up.
   useLayoutEffect(() => {

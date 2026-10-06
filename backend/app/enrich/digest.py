@@ -14,6 +14,7 @@ from app.ai.base import AIClient, AIError, Priority, QuotaExhausted
 from app.config import get_settings
 from app.db import SessionLocal
 from app.models import Article, Digest
+from app.ranking import rank_recent
 
 log = structlog.get_logger()
 
@@ -58,18 +59,9 @@ class DigestOut(BaseModel):
 
 
 async def top_stories(session, now: datetime, kind: str = "general") -> list[Article]:
-    """Highest global relevance of the last day (HN /front covers the previous day: 48 h) within
-    the overview's scope, with at most PER_SOURCE_CAP from one source so it spans the page."""
-    recent = or_(
-        Article.published_at > now - timedelta(hours=24),
-        and_(Article.source == "hn", Article.published_at > now - timedelta(hours=48)),
-    )
-    query = select(Article).where(Article.duplicate_of.is_(None), Article.global_score.is_not(None), recent)
-    if SCOPES[kind] is not None:
-        query = query.where(SCOPES[kind])
-    rows = (await session.scalars(
-        query.order_by(Article.global_score.desc(), Article.published_at.desc()).limit(TOP_STORIES * 4)
-    )).all()
+    """The most important stories of the last day (see app.ranking) within the overview's scope,
+    with at most PER_SOURCE_CAP from one source so it spans the page."""
+    rows = await rank_recent(session, now, SCOPES[kind])
     cap = PER_SOURCE_CAP if kind == "general" else TOP_STORIES  # a single-source scope keeps them all
     picked, counts = [], {}
     for a in rows:
