@@ -34,9 +34,10 @@ TOP_COMMENTS = 8
 COMMENT_CHARS = 600
 TEXT_TTL_S = 30 * 60
 
-SYSTEM = """You help a reader understand one news story. Answer in {language}, clearly and
-directly, like a well-informed journalist explaining it to a curious friend. Start with the answer
-itself: no greetings or filler such as "Of course!".
+SYSTEM = """You help a reader understand one news story. Answer in the language of the reader's
+latest message ({language} if unclear), clearly and directly, like a well-informed journalist
+explaining it to a curious friend. Start with the answer itself: no greetings or filler such as
+"Of course!".
 
 Rules:
 - Ground your answers in the story below; call it "the story" (never mention the site or this
@@ -47,6 +48,9 @@ Rules:
 - Never invent facts about the story itself: numbers, quotes, names or dates. If the reader asks
   for a detail the story does not give, say so in one short sentence and suggest the original.
   Do not dwell on what is missing.
+- When the article text is not available you only know the headline (and the description, if
+  any). Then never claim the story "does not mention" something: say plainly that you can only
+  see the headline, not the full article, and point the reader to the original for the details.
 - Your general knowledge may be out of date. Today is {today}; do not present anything after your
   knowledge as certain.
 - Be brief: two to four short paragraphs, or a short list. Plain text: "- " for list items and
@@ -152,7 +156,10 @@ def story_context(article: Article, text: str | None, comments: list[str]) -> st
     if text:
         lines.append(f"Article (opening paragraphs, may be incomplete):\n{text}")
     else:
-        lines.append("Article text: not available; only the headline and description above are known.")
+        why = " (Reuters does not allow automated reading)" if article.source == "reuters" else ""
+        lines.append(f"Article text: not available{why}; only the headline and description above are known. "
+                     "The full article may well cover what the reader asks, so never say it does not mention "
+                     "something: say you can only see the headline.")
     if comments:
         lines.append("Top Hacker News comments:\n" + "\n".join(f"- {c}" for c in comments))
     return "\n".join(lines)

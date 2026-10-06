@@ -121,4 +121,4 @@ def test_guard_resets_daily_budget_and_hourly_window():
 def test_story_context_says_when_the_article_text_is_missing():
     a = Article(source="reuters", title="Talks resume", published_at=NOW, section="world", topics=[], summary=None)
     text = chat.story_context(a, None, [])
-    assert "Talks resume" in text and "not available" in text and "comments" not in text
+    assert "Talks resume" in text and "Reuters does not allow" in text and "comments" not in text

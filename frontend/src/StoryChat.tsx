@@ -127,6 +127,7 @@ export function StoryChat({ article }: { article: Article }) {
       {messages.length === 0 ? (
         <div className="chat-intro">
           <p>{t.chat.intro}</p>
+          {article.source === "reuters" && <p className="chat-limit">{t.chat.headlineOnly}</p>}
           <div className="chat-suggestions">
             {t.chat.suggestions.map((s) => (
               <button key={s} className="chat-suggestion" onClick={() => void ask(s)}>{s}</button>
