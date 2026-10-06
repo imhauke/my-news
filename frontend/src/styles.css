@@ -1569,10 +1569,12 @@ button {
   color: var(--accent);
 }
 
-/* The chat fills the panel: the log scrolls, the text box stays at the bottom. */
+/* The chat fills the panel: only the conversation scrolls; the text box is anchored below it. */
 .panel-body[data-mode="chat"] {
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  padding-top: 0;
   padding-bottom: 0;
 }
 
@@ -1580,12 +1582,25 @@ button {
   display: flex;
   flex: 1;
   flex-direction: column;
+  min-height: 0;
 }
 
 .chat {
   display: flex;
   flex: 1;
   flex-direction: column;
+  min-height: 0;
+}
+
+.chat-scroll {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-block: 1rem;
+  scrollbar-width: thin;
 }
 
 .chat-intro {
@@ -1715,19 +1730,13 @@ button {
 }
 
 .chat-composer {
-  position: sticky;
-  bottom: 0;
+  flex: none;
   display: flex;
   align-items: flex-end;
   gap: 0.5rem;
-  margin-top: 1.25rem;
   padding: 0.75rem 0 0.4rem;
+  border-top: 1px solid var(--rule);
   background: var(--paper-raised);
-}
-
-/* Half-open sheet: its lower part is off screen, so the text box sits at the visible edge. */
-.discussion-panel[data-layout="sheet"]:not([data-fullscreen]) .chat-composer {
-  bottom: 42dvh;
 }
 
 .chat-composer textarea {
@@ -1771,8 +1780,7 @@ button {
 }
 
 .chat-notice {
-  position: sticky;
-  bottom: 0;
+  flex: none;
   margin: 0;
   padding: 0 0 0.9rem;
   background: var(--paper-raised);

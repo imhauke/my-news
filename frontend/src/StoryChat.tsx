@@ -57,7 +57,7 @@ export function StoryChat({ article }: { article: Article }) {
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const abort = useRef<AbortController | null>(null);
-  const root = useRef<HTMLDivElement>(null);
+  const log = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const stick = useRef(true); // follow the answer while the reader is at the bottom
 
@@ -65,13 +65,14 @@ export function StoryChat({ article }: { article: Article }) {
   useEffect(() => () => abort.current?.abort(), []);
   useEffect(() => { if (focusesInputOnOpen()) input.current?.focus({ preventScroll: true }); }, []);
 
-  // The panel body is the scroller: keep the newest text in view unless the reader scrolled up.
+  // Only the conversation scrolls (the text box stays put): keep the newest text in view unless
+  // the reader scrolled up.
   useLayoutEffect(() => {
-    const scroller = root.current?.closest(".panel-body");
+    const scroller = log.current;
     if (scroller && stick.current) scroller.scrollTop = scroller.scrollHeight;
   }, [messages]);
   useEffect(() => {
-    const scroller = root.current?.closest(".panel-body");
+    const scroller = log.current;
     if (!scroller) return;
     const onScroll = () => { stick.current = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 48; };
     scroller.addEventListener("scroll", onScroll, { passive: true });
@@ -121,7 +122,8 @@ export function StoryChat({ article }: { article: Article }) {
     code === "rate_limited" ? t.chat.rateLimited : code === "daily_limit" ? t.chat.dailyLimit : t.chat.unavailable;
 
   return (
-    <div className="chat" ref={root}>
+    <div className="chat">
+      <div className="chat-scroll" ref={log}>
       {messages.length === 0 ? (
         <div className="chat-intro">
           <p>{t.chat.intro}</p>
@@ -153,6 +155,7 @@ export function StoryChat({ article }: { article: Article }) {
           ))}
         </ol>
       )}
+      </div>
 
       <form className="chat-composer" onSubmit={(e) => { e.preventDefault(); void ask(draft); }}>
         <textarea
