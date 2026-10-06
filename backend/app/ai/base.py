@@ -1,5 +1,6 @@
 """Common AI client interface: switching provider does not touch the rest of the code."""
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from enum import IntEnum
 from typing import Protocol, TypeVar
@@ -46,3 +47,9 @@ class AIClient(Protocol):
     async def embed(
         self, texts: list[str], *, task: str, priority: Priority = Priority.ENRICHMENT
     ) -> list[list[float]]: ...
+
+    def stream_chat(
+        self, messages: list[tuple[str, str]], *, model: str, task: str, system: str,
+        priority: Priority = Priority.FOR_YOU, max_output_tokens: int = 1024, retries: int = 1,
+        wait_seconds: float = 25,
+    ) -> AsyncIterator[str]: ...

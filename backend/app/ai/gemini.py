@@ -3,7 +3,7 @@
 import asyncio
 import json
 import random
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 import httpx
 import structlog
@@ -113,6 +113,49 @@ class GeminiClient:
         ]}
         data = await self._post(f"models/{model}:batchEmbedContents", body, task=task, model=model, priority=priority)
         return [e["values"] for e in data["embeddings"]]
+
+    async def stream_chat(
+        self, messages: list[tuple[str, str]], *, model: str, task: str, system: str,
+        priority: Priority = Priority.FOR_YOU, max_output_tokens: int = 1024, retries: int = 1,
+        wait_seconds: float = 25,
+    ) -> AsyncIterator[str]:
+        """Streams the answer to a conversation of (role, text) turns, role "user" or "model".
+        429 / 5xx are retried only before the first chunk: once text is flowing it cannot restart.
+        A reader is waiting, so a model that stays silent for `wait_seconds` counts as failed."""
+        body = {
+            "contents": [{"role": role, "parts": [{"text": text}]} for role, text in messages],
+            "systemInstruction": {"parts": [{"text": system}]},
+            "generationConfig": {"temperature": 0.4, "maxOutputTokens": max_output_tokens},
+        }
+        url = f"{self._base_url}/models/{model}:streamGenerateContent?alt=sse"
+        timeout = httpx.Timeout(10, read=wait_seconds)
+        for attempt in range(retries + 1):
+            await self._limiter_for(model).acquire(priority)
+            try:
+                async with self._http.stream("POST", url, json=body, headers=self._headers, timeout=timeout) as resp:
+                    if resp.status_code < 400:
+                        usage = Usage()
+                        async for line in resp.aiter_lines():
+                            if not line.startswith("data:"):
+                                continue
+                            data = json.loads(line[5:])
+                            if meta := data.get("usageMetadata"):
+                                usage = Usage(meta.get("promptTokenCount", 0), meta.get("candidatesTokenCount", 0))
+                            parts = (data.get("candidates") or [{}])[0].get("content", {}).get("parts", [])
+                            if text := "".join(p.get("text", "") for p in parts if not p.get("thought")):
+                                yield text
+                        await self._record(task, model, usage, "ok")
+                        return
+                    status = resp.status_code
+                    detail = (await resp.aread()).decode(errors="replace")[:200]
+            except httpx.HTTPError as exc:  # timeout or dropped connection
+                await self._record(task, model, Usage(), "error")
+                raise AIError(f"Gemini stream failed: {type(exc).__name__}") from exc
+            retryable = status == 429 or status >= 500
+            await self._record(task, model, Usage(), "rate_limited" if status == 429 else "error")
+            if not retryable or attempt == retries:
+                raise AIError(f"Gemini {status}: {detail}")
+            await asyncio.sleep(self._backoff_base * 2**attempt + random.uniform(0, 0.25))
 
     @staticmethod
     def _body(prompt: str, system: str | None, config: dict) -> dict:

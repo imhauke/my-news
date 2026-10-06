@@ -1,4 +1,4 @@
-import { ArrowUp, Check, MessageSquare } from "lucide-react";
+import { ArrowUp, Check, MessageSquare, Sparkles } from "lucide-react";
 import { FeedbackButtons } from "./FeedbackButtons";
 import { SECTION_LABEL, useLang, useT } from "./i18n";
 import { SOURCE_LABEL, firstTopic, formatNumber, timeAgo } from "./format";
@@ -16,8 +16,9 @@ export function StoryMeta({ article, showTime = true }: Props) {
   const lang = useLang();
   const t = useT();
   const read = useIsRead(article.id);
-  const { active, toggle } = useDiscussion();
-  const open = active?.id === article.id;
+  const { active, mode, toggle } = useDiscussion();
+  const commentsOpen = active?.id === article.id && mode === "comments";
+  const chatOpen = active?.id === article.id && mode === "chat";
   // Reuters and Ars are labelled with their section; on HN everything is "front", so the topic is used.
   const label = article.source === "hn" || !article.section
     ? firstTopic(article, lang)
@@ -42,9 +43,9 @@ export function StoryMeta({ article, showTime = true }: Props) {
       {article.hn_story_id != null && (
         <button
           className="comments-toggle"
-          aria-expanded={open}
-          aria-controls={open ? "discussion-panel" : undefined}
-          onClick={() => toggle(article)}
+          aria-expanded={commentsOpen}
+          aria-controls={commentsOpen ? "discussion-panel" : undefined}
+          onClick={() => toggle(article, "comments")}
           // Start loading on intent, so the panel usually opens with the thread already there.
           onPointerEnter={() => prefetchComments(article.id)}
           onFocus={() => prefetchComments(article.id)}
@@ -53,6 +54,17 @@ export function StoryMeta({ article, showTime = true }: Props) {
           {t.comments(article.hn_comment_count ?? 0)}
         </button>
       )}
+      <button
+        className="comments-toggle ask-toggle"
+        aria-expanded={chatOpen}
+        aria-controls={chatOpen ? "discussion-panel" : undefined}
+        aria-label={t.chat.askLabel}
+        title={t.chat.askLabel}
+        onClick={() => toggle(article, "chat")}
+      >
+        <Sparkles aria-hidden size={14} strokeWidth={2} />
+        {t.chat.ask}
+      </button>
       <FeedbackButtons article={article} />
     </div>
   );

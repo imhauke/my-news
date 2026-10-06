@@ -29,7 +29,8 @@ function mockApi(routes: Routes, { failLatest = false } = {}) {
     if (url.endsWith("/session")) return new Response(JSON.stringify({ user_id: 1 }));
     if (url.includes("/feedback")) return new Response(JSON.stringify({ feedback: JSON.parse(String(init?.body)).value }));
     const key = Object.keys(routes).find((k) => url.includes(k));
-    return new Response(JSON.stringify(key ? routes[key] : []));
+    const route = key ? routes[key] : [];
+    return typeof route === "function" ? (route as () => Response)() : new Response(JSON.stringify(route));
   });
   return calls;
 }
@@ -201,6 +202,36 @@ describe("App", () => {
 
     fireEvent.keyDown(window, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("complementary")).not.toBeInTheDocument());
+  });
+
+  it("answers questions about a story in the side panel, streaming the reply", async () => {
+    const reuters: Article = { ...lead, id: 3 };
+    const answer = [
+      'event: delta\ndata: {"text": "El **Nobel** se concede"}\n\n',
+      'event: delta\ndata: {"text": " cada año.\\n\\n- Química\\n- Física"}\n\n',
+      'event: done\ndata: {"model": "lite"}\n\n',
+    ].join("");
+    let reply: () => Response = () => new Response(answer, { headers: { "content-type": "text/event-stream" } });
+    const calls = mockApi({ "/feed/latest": [reuters], "/chat": () => reply() });
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Preguntar a la IA sobre esta noticia" }));
+    const panel = await screen.findByRole("complementary", { name: "Se reanudan las conversaciones en Ginebra" });
+    expect(within(panel).getByText("Pregunta sobre la noticia")).toBeInTheDocument();
+
+    fireEvent.click(within(panel).getByRole("button", { name: "¿Por qué es importante?" }));
+    expect(await within(panel).findByText("Nobel")).toHaveProperty("tagName", "STRONG");
+    expect(within(panel).getByText("Física")).toBeInTheDocument(); // list item
+    const sent = JSON.parse(calls.find((c) => c.url.endsWith("/articles/3/chat"))!.body!);
+    expect(sent).toEqual({ messages: [{ role: "user", text: "¿Por qué es importante?" }], lang: "es" });
+
+    // a follow-up carries the conversation; a refusal from the server is explained in place
+    reply = () => new Response(JSON.stringify({ detail: "rate_limited" }), { status: 429 });
+    const box = within(panel).getByRole("textbox", { name: "Escribe tu pregunta…" });
+    fireEvent.change(box, { target: { value: "¿Y quién lo decide?" } });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(await within(panel).findByRole("alert")).toHaveTextContent("Has hecho muchas preguntas seguidas");
+    const followUp = JSON.parse(calls.filter((c) => c.url.endsWith("/chat")).at(-1)!.body!);
+    expect(followUp.messages.map((m: { role: string }) => m.role)).toEqual(["user", "model", "user"]);
   });
 
   it("refreshes itself while visible, adding new stories on top", async () => {

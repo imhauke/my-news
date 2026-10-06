@@ -1,11 +1,22 @@
 # Serves the built frontend and proxies /api to the backend.
 # Behind a shared reverse proxy (which terminates TLS) it listens on plain :80. To run it on its own
 # with automatic HTTPS, set SITE_ADDRESS to the domain and publish ports 80/443.
+
+# The shared proxy reaches this server over a private Docker network: trust its X-Forwarded-For so
+# {client_ip} is the visitor's address. Anything sent from the internet is overwritten by that proxy.
+{
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
 {$SITE_ADDRESS::80} {
 	encode zstd gzip
 
 	handle_path /api/* {
-		reverse_proxy api:8000
+		reverse_proxy api:8000 {
+			header_up X-Real-IP {client_ip}
+		}
 	}
 
 	# Hashed build output never changes under the same name.

@@ -73,3 +73,47 @@ async def test_embed_requests_configured_dimensions():
     vecs = await make().embed(["a", "b"], task="embed")
     assert vecs == [[0.1, 0.2], [0.3, 0.4]]
     assert b'"outputDimensionality":768' in route.calls[0].request.content.replace(b" ", b"")
+
+
+def sse(*events: dict) -> httpx.Response:
+    import json
+
+    body = "".join(f"data: {json.dumps(e)}\r\n\r\n" for e in events)
+    return httpx.Response(200, text=body, headers={"content-type": "text/event-stream"})
+
+
+@respx.mock
+async def test_stream_chat_yields_text_skips_thoughts_and_records_usage():
+    route = respx.post(f"{BASE}/models/m:streamGenerateContent", params={"alt": "sse"}).mock(side_effect=[
+        httpx.Response(429),
+        sse(
+            {"candidates": [{"content": {"parts": [{"text": "planning", "thought": True}]}}]},
+            {"candidates": [{"content": {"parts": [{"text": "The Nobel "}]}}]},
+            {"candidates": [{"content": {"parts": [{"text": "is a prize."}]}}],
+             "usageMetadata": {"promptTokenCount": 120, "candidatesTokenCount": 9}},
+        ),
+    ])
+    seen: list = []
+    chunks = [c async for c in make(seen).stream_chat([("user", "What is it?")], model="m", task="chat", system="s")]
+    assert chunks == ["The Nobel ", "is a prize."]
+    assert route.call_count == 2  # one retry before the first chunk
+    assert seen == [("chat", "m", 0, "rate_limited"), ("chat", "m", 120, "ok")]
+    import json
+
+    sent = json.loads(route.calls[-1].request.content)
+    assert sent["contents"] == [{"role": "user", "parts": [{"text": "What is it?"}]}]
+    assert sent["systemInstruction"] == {"parts": [{"text": "s"}]}
+
+
+@respx.mock
+async def test_stream_chat_gives_up_on_client_errors():
+    respx.post(f"{BASE}/models/m:streamGenerateContent").mock(return_value=httpx.Response(400, text="bad"))
+    with pytest.raises(AIError, match="400"):
+        _ = [c async for c in make().stream_chat([("user", "q")], model="m", task="chat", system="s")]
+
+
+@respx.mock
+async def test_stream_chat_turns_a_silent_model_into_an_ai_error():
+    respx.post(f"{BASE}/models/m:streamGenerateContent").mock(side_effect=httpx.ReadTimeout("slow"))
+    with pytest.raises(AIError, match="ReadTimeout"):
+        _ = [c async for c in make().stream_chat([("user", "q")], model="m", task="chat", system="s")]

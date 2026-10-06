@@ -3,10 +3,13 @@ from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import chat as story_chat
+from app.ai.base import AIClient
 from app.api.comments_tree import build_tree
 from app.api.session import ensure_session, forget, optional_user, required_user
 from app.config import get_settings
@@ -16,7 +19,7 @@ from app.enrich.translate import translate_comments
 from app.ingest.fetch import make_client
 from app.ingest.jobs import fetch_story_comments
 from app.models import AIUsage, Article, ArticleFeedback, Digest, Event, User
-from app.schemas import ArticleOut, CommentNode, DigestOut, EventBatch, FeedbackIn
+from app.schemas import ArticleOut, ChatIn, CommentNode, DigestOut, EventBatch, FeedbackIn
 
 log = structlog.get_logger()
 router = APIRouter()
@@ -207,6 +210,45 @@ async def comments(article_id: int, session: Session, lang: Lang = "en") -> list
             await translate_comments(session, pending, get_ai_client())
             rows = (await session.execute(COMMENTS_SQL, {"story": int(a.external_id)})).mappings().all()
     return build_tree([dict(r) for r in rows])
+
+
+def chat_ai() -> AIClient | None:
+    if not get_settings().gemini_api_key:
+        return None
+    from app.ai.factory import get_ai_client
+    return get_ai_client()
+
+
+def client_ip(request: Request) -> str:
+    """The visitor's address: set by the site's Caddy from the trusted edge proxy (X-Real-IP), or
+    the direct peer when running without proxies."""
+    return request.headers.get("x-real-ip") or (request.client.host if request.client else "unknown")
+
+
+@router.post("/articles/{article_id}/chat")
+async def ask_about_story(
+    article_id: int, body: ChatIn, request: Request, session: Session,
+    ai: Annotated[AIClient | None, Depends(chat_ai)],
+) -> StreamingResponse:
+    """Answers a question about one story, streamed as server-sent events (see app.chat)."""
+    try:
+        story_chat.validate(body)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    a = await session.get(Article, article_id)
+    if not a:
+        raise HTTPException(404, "article not found")
+    if ai is None:
+        raise HTTPException(503, "unavailable")
+    try:
+        story_chat.guard().check(client_ip(request))
+    except story_chat.ChatLimited as exc:
+        raise HTTPException(429, exc.code) from exc
+    system = await story_chat.build_system(session, a, body.lang)
+    return StreamingResponse(
+        story_chat.answer(ai, system, body), media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.post("/events", status_code=202)

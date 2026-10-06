@@ -2,6 +2,7 @@ import { ArrowUp, Maximize2, MessageSquare, Minimize2, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Comments } from "./Comments";
+import { StoryChat } from "./StoryChat";
 import { useDiscussion } from "./discussion";
 import { headline } from "./format";
 import { useLang, useT } from "./i18n";
@@ -30,20 +31,21 @@ function useSideGeometry(enabled: boolean, fullscreen: boolean) {
 }
 
 /**
- * Hacker News discussion in a floating, non-modal panel: no backdrop and no focus trap, so the
- * page stays visible, scrollable and clickable. Opening another story's comments swaps the thread
- * in place. Docked on the right on wide screens (the page makes room for it), a half-height
- * bottom sheet on phones.
+ * A story's Hacker News discussion, or a chat about the story, in a floating, non-modal panel: no
+ * backdrop and no focus trap, so the page stays visible, scrollable and clickable. Opening
+ * another story swaps the content in place. Docked on the right on wide screens (the page makes
+ * room for it), a bottom sheet on phones.
  */
 export function DiscussionPanel() {
-  const { active, close, fullscreen, setFullscreen } = useDiscussion();
+  const { active, mode, close, fullscreen, setFullscreen } = useDiscussion();
   const t = useT();
   const lang = useLang();
   const compact = useMediaQuery("(max-width: 52rem)");
   const headingRef = useRef<HTMLHeadingElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
-  const open = Boolean(active && active.hn_story_id != null);
+  const chat = mode === "chat";
+  const open = Boolean(active && (chat || active.hn_story_id != null));
   // Full screen on wide screens: the text fades out, the browser stops laying it out
   // (content-visibility), the panel's real box glides to its new position and width, and the
   // text fades back in. Nothing is scaled, so shadow, border and corners stay crisp.
@@ -74,13 +76,14 @@ export function DiscussionPanel() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, close, fullscreen, changeFullscreen]);
 
-  // On open or thread switch: remember what opened it, move focus to the title, start at the top.
+  // On open or switch: remember what opened it, move focus to the title (a chat focuses its text
+  // box instead), start at the top.
   useEffect(() => {
     if (!active) return;
     if (!triggerRef.current && document.activeElement instanceof HTMLElement) triggerRef.current = document.activeElement;
-    headingRef.current?.focus({ preventScroll: true });
+    if (!chat) headingRef.current?.focus({ preventScroll: true });
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
-  }, [active]);
+  }, [active, chat]);
 
   // On close: give focus back to the button that opened it.
   useEffect(() => {
@@ -96,7 +99,7 @@ export function DiscussionPanel() {
   const FullscreenIcon = fullscreen ? Minimize2 : Maximize2;
   return (
     <AnimatePresence>
-      {open && active && active.hn_story_id != null && (
+      {open && active && (chat || active.hn_story_id != null) && (
         <motion.aside
           key="discussion"
           id="discussion-panel"
@@ -124,14 +127,14 @@ export function DiscussionPanel() {
           >
           <header className="panel-head">
             <div className="panel-heading">
-              <p className="panel-kind">{t.discussionTitle}</p>
+              <p className="panel-kind">{chat ? t.chat.title : t.discussionTitle}</p>
               <h2 id="discussion-title" ref={headingRef} tabIndex={-1} className="headline">{headline(active, lang)}</h2>
-              <p className="panel-stats">
+              {!chat && <p className="panel-stats">
                 {active.hn_points != null && (
                   <span><ArrowUp aria-hidden size={13} strokeWidth={2.25} />{t.points(active.hn_points)}</span>
                 )}
                 <span><MessageSquare aria-hidden size={13} />{t.comments(active.hn_comment_count ?? 0)}</span>
-              </p>
+              </p>}
             </div>
             <div className="panel-actions">
               <button className="icon-button" onClick={() => changeFullscreen(!fullscreen)}
@@ -144,11 +147,13 @@ export function DiscussionPanel() {
               </button>
             </div>
           </header>
-          <div className="panel-body" ref={bodyRef}>
+          <div className="panel-body" ref={bodyRef} data-mode={mode}>
             <AnimatePresence mode="wait">
-              <motion.div key={active.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                          transition={{ duration: 0.14 }}>
-                <Comments articleId={active.id} storyId={active.hn_story_id} />
+              <motion.div key={`${active.id}:${mode}`} className="panel-view" initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.14 }}>
+                {chat || active.hn_story_id == null
+                  ? <StoryChat article={active} />
+                  : <Comments articleId={active.id} storyId={active.hn_story_id} />}
               </motion.div>
             </AnimatePresence>
           </div>

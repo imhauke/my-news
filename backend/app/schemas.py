@@ -40,7 +40,7 @@ class CommentNode(BaseModel):
 
 
 EventType = Literal[
-    "impression", "click", "like", "dislike", "more_like_this", "less_like_this", "hide", "read_time"
+    "impression", "click", "like", "dislike", "more_like_this", "less_like_this", "hide", "read_time", "ask"
 ]
 
 
@@ -69,3 +69,16 @@ class FeedbackIn(BaseModel):
 
 class EventBatch(BaseModel):
     events: list[EventIn] = Field(max_length=200)
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "model"]
+    text: str = Field(min_length=1, max_length=4000)
+
+
+class ChatIn(BaseModel):
+    """The conversation so far, kept by the browser (the server stores none); the last turn is
+    the reader's new question."""
+
+    messages: list[ChatMessage] = Field(min_length=1, max_length=24)
+    lang: Literal["es", "en"] = "es"

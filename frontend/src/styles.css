@@ -1562,3 +1562,221 @@ button {
 .sources-closing a {
   color: inherit;
 }
+
+/* ── Ask about a story ─────────────────────────────────────── */
+
+.ask-toggle svg {
+  color: var(--accent);
+}
+
+/* The chat fills the panel: the log scrolls, the text box stays at the bottom. */
+.panel-body[data-mode="chat"] {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0;
+}
+
+.panel-body[data-mode="chat"] > .panel-view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.chat {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.chat-intro {
+  flex: 1;
+  font-family: var(--serif);
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.chat-intro p {
+  margin: 0;
+}
+
+.chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.chat-suggestion {
+  padding: 0.45rem 0.85rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--paper);
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--sans);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: left;
+  transition: border-color 160ms var(--ease-out), background-color 160ms var(--ease-out);
+}
+
+.chat-suggestion:hover {
+  border-color: var(--ink);
+}
+
+.chat-log {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chat-message p,
+.chat-message ul {
+  margin: 0;
+}
+
+/* The reader's question: a quiet bubble on the right. */
+.chat-user {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 0.55rem 0.85rem;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--track);
+  font-size: 0.9375rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The answer reads like the rest of the site: serif text, no bubble. */
+.chat-answer {
+  font-family: var(--serif);
+  font-size: 1rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.chat-answer > * + * {
+  margin-top: 0.7rem !important;
+}
+
+.chat-answer ul {
+  padding-left: 1.1rem;
+}
+
+.chat-answer li + li {
+  margin-top: 0.3rem;
+}
+
+.chat-error {
+  font-family: var(--sans);
+  font-size: 0.875rem;
+  color: var(--dislike);
+}
+
+.chat-typing {
+  display: inline-flex;
+  gap: 0.3rem;
+  padding: 0.4rem 0;
+}
+
+.chat-typing i {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--ink-3);
+  animation: chat-dot 1.1s ease-in-out infinite;
+}
+
+.chat-typing i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.chat-typing i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes chat-dot {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-typing i {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+.chat-composer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  padding: 0.75rem 0 0.4rem;
+  background: var(--paper-raised);
+}
+
+/* Half-open sheet: its lower part is off screen, so the text box sits at the visible edge. */
+.discussion-panel[data-layout="sheet"]:not([data-fullscreen]) .chat-composer {
+  bottom: 42dvh;
+}
+
+.chat-composer textarea {
+  flex: 1;
+  min-height: 2.6rem;
+  max-height: 10rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: var(--paper);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  resize: none;
+  transition: border-color 160ms var(--ease-out);
+}
+
+.chat-composer textarea:focus {
+  outline: none;
+  border-color: var(--ink);
+}
+
+.chat-send {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--paper);
+  cursor: pointer;
+  transition: opacity 160ms var(--ease-out);
+}
+
+.chat-send:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.chat-notice {
+  position: sticky;
+  bottom: 0;
+  margin: 0;
+  padding: 0 0 0.9rem;
+  background: var(--paper-raised);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--ink-3);
+}

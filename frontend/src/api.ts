@@ -75,3 +75,59 @@ export const putFeedback = (articleId: number, value: Feedback) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ value }),
   });
+
+export interface ChatTurn {
+  role: "user" | "model";
+  text: string;
+}
+
+/** Why an answer could not be given: "rate_limited", "daily_limit" or "unavailable". */
+export class ChatError extends Error {
+  constructor(readonly code: string) {
+    super(code);
+  }
+}
+
+/**
+ * Asks about a story and streams the answer: `onDelta` receives each piece of text as Gemini
+ * writes it. The server keeps no conversation, so the whole history is sent each time.
+ */
+export async function streamChat(
+  articleId: number, messages: ChatTurn[], lang: Lang, onDelta: (text: string) => void, signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`${BASE}/articles/${articleId}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages, lang }),
+    credentials: "omit", // a question needs no session
+    signal,
+  });
+  if (!res.ok) {
+    let code = "unavailable";
+    if (res.status === 429) {
+      const detail = await res.json().then((d: { detail?: unknown }) => d.detail, () => null);
+      if (typeof detail === "string") code = detail;
+    }
+    throw new ChatError(code);
+  }
+  if (!res.body) throw new ChatError("unavailable");
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true }).replaceAll("\r\n", "\n");
+    let end: number;
+    while ((end = buffer.indexOf("\n\n")) >= 0) {
+      const block = buffer.slice(0, end);
+      buffer = buffer.slice(end + 2);
+      const name = /^event: (.+)$/m.exec(block)?.[1];
+      const data = JSON.parse(/^data: (.*)$/m.exec(block)?.[1] ?? "{}") as { text?: string; code?: string };
+      if (name === "delta" && data.text) onDelta(data.text);
+      else if (name === "error") throw new ChatError(data.code ?? "unavailable");
+      else if (name === "done") return;
+    }
+  }
+  throw new ChatError("unavailable"); // the stream ended without finishing
+}

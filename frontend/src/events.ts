@@ -5,7 +5,7 @@ const BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
 export type EventType =
   | "impression" | "click" | "like" | "dislike"
-  | "more_like_this" | "less_like_this" | "hide" | "read_time";
+  | "more_like_this" | "less_like_this" | "hide" | "read_time" | "ask";
 
 export interface TrackedEvent {
   type: EventType;

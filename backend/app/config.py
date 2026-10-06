@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     gemini_rpm: int = 0
     gemini_rpd: int = 0
 
+    # "Ask about this story": questions per visitor per hour and for the whole site per day.
+    chat_per_ip_hour: int = 20
+    chat_daily_limit: int = 400
+
     # Ingestion
     http_timeout_seconds: float = 20.0
     http_concurrency: int = 8
