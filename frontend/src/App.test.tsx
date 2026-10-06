@@ -286,6 +286,7 @@ describe("App", () => {
     const links = screen.getByRole("navigation", { name: "Enlaces" });
     expect(within(links).getByRole("link", { name: /GitHub/ })).toHaveAttribute("href", "https://github.com/imhauke/my-news");
     expect(within(links).getByRole("link", { name: /janguzman\.com/ })).toHaveAttribute("href", "https://janguzman.com");
+    expect(within(links).getByRole("link", { name: "Documentación" })).toHaveAttribute("href", "/docs.html");
     expect(screen.queryByRole("link", { name: /Código/ })).not.toBeInTheDocument(); // no longer in the masthead
 
     fireEvent.click(within(links).getByRole("button", { name: "Nuestras fuentes" }));

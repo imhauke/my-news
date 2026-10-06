@@ -1,4 +1,4 @@
-import { ExternalLink, X } from "lucide-react";
+import { BookOpen, ExternalLink, X } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { setConsent, setPrivacyOpen, useConsent, usePrivacyOpen } from "./consent";
 import { formatNumber } from "./format";
@@ -10,6 +10,7 @@ export const LINKS = {
   github: "https://github.com/imhauke/my-news",
   linkedin: "https://www.linkedin.com/in/janguzmanperez/",
   site: "https://janguzman.com",
+  docs: "/docs.html", // architecture and CI/CD document (frontend/public/docs.html)
 };
 
 /** Who is responsible for the data, as the privacy notice must say. Without an email the contact
@@ -133,6 +134,9 @@ export function Footer({ metrics }: { metrics: Metrics | null }) {
         <button className="colophon-link" onClick={() => setPrivacyOpen(true)} aria-haspopup="dialog">
           {t.privacyLink}
         </button>
+        <a className="colophon-link" href={LINKS.docs} target="_blank" rel="noopener">
+          <BookOpen aria-hidden size={14} /> {t.documentation}
+        </a>
         <a className="colophon-link" href={LINKS.github} target="_blank" rel="noopener noreferrer">
           <GithubMark /> GitHub
         </a>

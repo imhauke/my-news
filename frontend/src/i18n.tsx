@@ -38,6 +38,7 @@ const es = {
   digestTitle: "En resumen",
   digestNote: "lo esencial de las noticias de abajo",
   privacyLink: "Privacidad",
+  documentation: "Documentación",
   consent: {
     kicker: "Nota al lector",
     text: "¿Dejas que MyNews aprenda de lo que lees y valoras para preparar tu feed «Para ti»? Se guarda con un identificador anónimo, sin nombre ni correo, y nunca se comparte.",
@@ -197,6 +198,7 @@ const en: Dict = {
   digestTitle: "In brief",
   digestNote: "the gist of the stories below",
   privacyLink: "Privacy",
+  documentation: "Documentation",
   consent: {
     kicker: "Note to readers",
     text: "Can MyNews learn from what you read and rate to build your For You feed? It is stored under an anonymous ID, with no name or email, and never shared.",

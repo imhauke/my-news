@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyNews · Arquitectura y CI/CD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="(prefers-color-scheme: light)">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="(prefers-color-scheme: dark)">
+<style>
+  :root {
+    --paper: #f4f5f7; --raised: #ffffff; --ink: #121417; --ink-2: #4b525c; --ink-3: #626a76;
+    --rule: #d9dce1; --accent: #0e6b58; --wash: #e2efeb; --warn: #9a5b00; --warn-wash: #f6ead6;
+    --muted-wash: #eceef1; --serif: "Source Serif 4", Georgia, serif; --sans: "Schibsted Grotesk", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+    --node: #ffffff; --node-stroke: #c9cdd4; --edge: #aab0ba; --packet: #0e6b58; --zone: #e9ebef;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0f1114; --raised: #171a1f; --ink: #eceef1; --ink-2: #a9b0bb; --ink-3: #8f97a3; --rule: #272c34;
+      --accent: #5cc3a6; --wash: #15302a; --warn: #e2a85a; --warn-wash: #2b2217; --muted-wash: #1d2027;
+      --node: #1b1f25; --node-stroke: #343a44; --edge: #4b525c; --packet: #5cc3a6; --zone: #14171c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--paper); }
+  body { margin: 0; color: var(--ink); font: 400 16px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+  ::selection { background: var(--accent); color: var(--paper); }
+  .wrap { max-width: 74rem; margin: 0 auto; padding: 0 clamp(1rem, 4vw, 3rem) 5rem; }
+  header.top { padding: 3rem 0 1.5rem; border-bottom: 2px solid var(--ink); }
+  h1 { margin: 0; font: 700 clamp(2.6rem, 7vw, 4.6rem)/0.95 var(--serif); letter-spacing: -0.035em; }
+  .lede { margin: 1rem 0 0; font: 400 1.15rem/1.55 var(--serif); color: var(--ink-2); }
+  .facts { display: flex; flex-wrap: wrap; gap: 0.5rem 1.75rem; margin-top: 1.25rem; font-size: 0.9rem; color: var(--ink-3); }
+  .facts b { color: var(--ink); font-weight: 600; }
+  nav.toc { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 1.25rem 0 0; }
+  nav.toc a { padding: 0.3rem 0.75rem; border-radius: 999px; background: var(--muted-wash); color: var(--ink-2); text-decoration: none; font-size: 0.85rem; font-weight: 500; }
+  nav.toc a:hover { color: var(--ink); background: var(--wash); }
+  section { padding-top: 3.25rem; }
+  h2 { margin: 0 0 0.35rem; font: 600 clamp(1.6rem, 3vw, 2.1rem)/1.15 var(--serif); letter-spacing: -0.015em; }
+  h3 { margin: 1.75rem 0 0.4rem; font: 600 1.2rem/1.3 var(--serif); }
+  .sub { margin: 0 0 1.25rem; color: var(--ink-2); }
+  a { color: var(--accent); text-underline-offset: 0.18em; }
+  code { font: 0.86em var(--mono); background: var(--muted-wash); padding: 0.1em 0.35em; border-radius: 4px; }
+  .figure { background: var(--raised); border: 1px solid var(--rule); border-radius: 14px; padding: clamp(0.75rem, 2vw, 1.5rem); overflow-x: auto; }
+  .figure svg { display: block; width: 100%; min-width: 760px; height: auto; }
+  .caption { margin: 0.6rem 0 0; font-size: 0.85rem; color: var(--ink-3); }
+  .legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.25rem; margin-top: 0.75rem; font-size: 0.82rem; color: var(--ink-2); }
+  .legend i { display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%; margin-right: 0.35rem; vertical-align: -0.05rem; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 1rem 2rem; }
+  .card { background: var(--raised); border: 1px solid var(--rule); border-radius: 12px; padding: 1rem 1.15rem; }
+  .card h4 { margin: 0 0 0.3rem; font: 600 1rem/1.3 var(--sans); }
+  .card p { margin: 0; font-size: 0.93rem; color: var(--ink-2); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  th, td { text-align: left; vertical-align: top; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--rule); }
+  th { font-size: 0.78rem; font-weight: 600; color: var(--ink-3); text-transform: none; }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+  .table-wrap { overflow-x: auto; background: var(--raised); border: 1px solid var(--rule); border-radius: 12px; }
+  .chip { display: inline-block; padding: 0.05rem 0.5rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+  .chip.ok { background: var(--wash); color: var(--accent); }
+  .chip.part { background: var(--warn-wash); color: var(--warn); }
+  .chip.todo { background: var(--muted-wash); color: var(--ink-3); }
+  .chip.off { background: none; border: 1px solid var(--rule); color: var(--ink-3); }
+  pre { margin: 0; }
+  pre code.hljs { display: block; padding: 1rem 1.1rem; border-radius: 10px; font: 0.82rem/1.55 var(--mono); background: var(--raised); border: 1px solid var(--rule); overflow-x: auto; }
+  .tabs { margin-top: 0.5rem; }
+  .tablist { display: inline-flex; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 10px; background: var(--muted-wash); margin-bottom: 0.6rem; }
+  .tablist button { border: 0; background: none; font: 500 0.84rem var(--sans); color: var(--ink-2); padding: 0.35rem 0.8rem; border-radius: 7px; cursor: pointer; }
+  .tablist button[aria-selected="true"] { background: var(--raised); color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
+  .tabpanel[hidden] { display: none; }
+  .tabpanel .note { margin: 0.55rem 0 0; font-size: 0.88rem; color: var(--ink-2); }
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0.75rem 0 0; }
+  .steps li { counter-increment: s; position: relative; padding: 0 0 0.75rem 2.2rem; }
+  .steps li::before { content: counter(s); position: absolute; left: 0; top: 0.05rem; width: 1.5rem; height: 1.5rem; border-radius: 50%; background: var(--ink); color: var(--paper); font-size: 0.78rem; font-weight: 700; display: grid; place-items: center; }
+  .callout { border-left: 3px solid var(--accent); background: var(--wash); padding: 0.75rem 1rem; border-radius: 0 10px 10px 0; margin: 1rem 0; font-size: 0.95rem; }
+  .callout.warn { border-color: var(--warn); background: var(--warn-wash); }
+  .toggle { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--muted-wash); margin-bottom: 0.75rem; }
+  .toggle button { border: 0; background: none; font: 600 0.85rem var(--sans); color: var(--ink-2); padding: 0.35rem 0.9rem; border-radius: 7px; cursor: pointer; }
+  .toggle button[aria-pressed="true"] { background: var(--raised); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
+  header.top { position: relative; }
+  .lang-switch { position: absolute; top: 3rem; right: 0; display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--muted-wash); }
+  .lang-switch button { border: 0; background: none; font: 600 0.82rem var(--sans); color: var(--ink-2); padding: 0.3rem 0.75rem; border-radius: 7px; cursor: pointer; }
+  .lang-switch button[aria-pressed="true"] { background: var(--raised); color: var(--ink); box-shadow: 0 1px 2px rgb(0 0 0 / 0.12); }
+  footer.end { margin-top: 4rem; padding-top: 1.25rem; border-top: 2px solid var(--ink); font-size: 0.85rem; color: var(--ink-3); }
+  /* SVG diagram styles */
+  .node rect { fill: var(--node); stroke: var(--node-stroke); stroke-width: 1.2; }
+  .node .t { font: 600 13px var(--sans); fill: var(--ink); }
+  .node .s { font: 400 11px var(--sans); fill: var(--ink-3); }
+  .node.accent rect { stroke: var(--accent); stroke-width: 1.6; }
+  .node.ext rect { stroke-dasharray: 4 3; }
+  .zone rect { fill: var(--zone); stroke: var(--node-stroke); stroke-dasharray: 6 5; }
+  .zone text { font: 600 11px var(--sans); fill: var(--ink-3); letter-spacing: 0.02em; }
+  .edge { fill: none; stroke: var(--edge); stroke-width: 1.6; }
+  .edge.ai { stroke-dasharray: 5 4; }
+  .elabel { font: 500 10.5px var(--sans); fill: var(--ink-3); }
+  .packet { fill: var(--packet); }
+  .packet.req { fill: #3a7bd5; }
+  .packet.ai { fill: #b36ad9; }
+  .stage rect { fill: var(--node); stroke: var(--node-stroke); stroke-width: 1.2; }
+  .stage.on rect { stroke: var(--accent); fill: var(--wash); }
+  .stage .t { font: 600 12.5px var(--sans); fill: var(--ink); }
+  .stage .s { font: 400 10.5px var(--sans); fill: var(--ink-3); }
+  .blocked { font: 600 11px var(--sans); fill: #c0392b; }
+  .inner, .stage rect { transform-box: fill-box; transform-origin: center; }
+  @media (max-width: 40rem) { td:first-child { white-space: normal; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="lang-switch" role="group" aria-label="Idioma"><button data-lang="es">ES</button><button data-lang="en">EN</button></div>
+  <h1>MyNews</h1>
+  <p class="lede">Cómo está construida la aplicación de punta a punta, cómo llega cada cambio a producción y qué conceptos de la especificación inicial están ya aplicados, con el código que los resuelve.</p>
+  <div class="facts">
+    <span><b>news.janguzman.com</b> en producción</span>
+    <span><b>3</b> fuentes · refresco cada <b>5 min</b></span>
+    <span><b>11</b> migraciones de base de datos</span>
+    <span><b>74 + 28</b> tests (backend + frontend)</span>
+  </div>
+  <nav class="toc" aria-label="Secciones">
+    <a href="#arquitectura">Arquitectura</a><a href="#huellas">Huellas</a><a href="#pdf">Del PDF a la realidad</a><a href="#codigo">Código clave</a>
+    <a href="#cicd">CI/CD</a><a href="#dominio">Dominio y páginas</a><a href="#vps">Caddy en el VPS</a><a href="#pendiente">Lo que falta</a>
+  </nav>
+</header>
+
+<!-- ───────────────────────────── ARQUITECTURA ───────────────────────────── -->
+<section id="arquitectura">
+  <h2>Arquitectura de punta a punta</h2>
+  <p class="sub">Todo corre en un VPS con Docker Compose salvo Gemini y las fuentes. Los puntos que circulan son datos: verdes los de ingesta, morados las llamadas a la IA y azules las peticiones de un lector.</p>
+  <div class="figure">
+    <svg id="arch" viewBox="0 0 1120 560" role="img" aria-labelledby="arch-title arch-desc">
+      <title id="arch-title">Arquitectura de MyNews</title>
+      <desc id="arch-desc">Las fuentes alimentan al worker, que guarda en PostgreSQL y consulta a Gemini. El lector entra por el proxy común con HTTPS, que reenvía al Caddy de MyNews, que sirve el frontend y reenvía /api a la API FastAPI, que lee de PostgreSQL.</desc>
+      <!-- zones -->
+      <g class="zone" data-anim="zone"><rect x="250" y="20" width="840" height="520" rx="16"/><text x="268" y="42">VPS</text></g>
+      <g class="zone" data-anim="zone"><rect x="270" y="58" width="635" height="462" rx="14" style="fill: var(--paper)"/><text x="288" y="80">Docker Compose · proyecto mynews</text></g>
+      <!-- edges (drawn) -->
+      <path id="e-reuters" class="edge" d="M190 110 C 240 110, 250 150, 300 160"/>
+      <path id="e-ars" class="edge" d="M190 230 C 240 230, 250 200, 300 195"/>
+      <path id="e-hn" class="edge" d="M190 350 C 240 350, 250 250, 300 230"/>
+      <path id="e-worker-db" class="edge" d="M470 200 C 515 200, 515 300, 555 300"/>
+      <path id="e-worker-ai" class="edge ai" d="M385 250 C 385 420, 300 470, 205 470"/>
+      <path id="e-api-ai" class="edge ai" d="M790 400 C 790 500, 320 505, 205 495"/>
+      <path id="e-api-db" class="edge" d="M720 300 L 680 300"/>
+      <path id="e-web-api" class="edge" d="M825 220 L 825 270"/>
+      <path id="e-edge-web" class="edge" d="M950 190 L 870 190"/>
+      <path id="e-user-edge" class="edge" d="M1062 190 L 1020 190"/>
+      <text class="elabel" x="300" y="128">cada 5 min</text>
+      <text class="elabel" x="505" y="238">upsert</text>
+      <text class="elabel" x="1022" y="180">HTTPS</text>
+      <text class="elabel" x="884" y="180">red edge</text>
+      <text class="elabel" x="832" y="250">/api/*</text>
+      <!-- nodes -->
+      <g class="node ext" data-anim="node" transform="translate(40 80)"><g class="inner"><rect width="150" height="60" rx="10"/><text class="t" x="14" y="26">Reuters</text><text class="s" x="14" y="44">sitemap de noticias</text></g></g>
+      <g class="node ext" data-anim="node" transform="translate(40 200)"><g class="inner"><rect width="150" height="60" rx="10"/><text class="t" x="14" y="26">Ars Technica</text><text class="s" x="14" y="44">RSS por sección</text></g></g>
+      <g class="node ext" data-anim="node" transform="translate(40 320)"><g class="inner"><rect width="150" height="60" rx="10"/><text class="t" x="14" y="26">Hacker News</text><text class="s" x="14" y="44">/front + Algolia</text></g></g>
+      <g class="node ext accent" data-anim="node" transform="translate(25 445)"><g class="inner"><rect width="180" height="70" rx="10"/><text class="t" x="14" y="26">Gemini API</text><text class="s" x="14" y="44">Lite · Flash · Embedding</text><text class="s" x="14" y="59">enriquecer · puntuar · chat</text></g></g>
+      <g class="node accent" data-anim="node" transform="translate(300 140)"><g class="inner"><rect width="170" height="110" rx="10"/><text class="t" x="14" y="26">Worker</text><text class="s" x="14" y="46">ingesta y deduplicación</text><text class="s" x="14" y="62">enriquecer y puntuar</text><text class="s" x="14" y="78">comentarios y análisis HN</text><text class="s" x="14" y="94">brief · huellas</text></g></g>
+      <g class="node" data-anim="node" transform="translate(555 260)"><g class="inner"><rect width="125" height="80" rx="10"/><text class="t" x="12" y="28">PostgreSQL</text><text class="s" x="12" y="46">+ pgvector</text><text class="s" x="12" y="62">Alembic 0001→0011</text></g></g>
+      <g class="node accent" data-anim="node" transform="translate(720 270)"><g class="inner"><rect width="165" height="130" rx="10"/><text class="t" x="14" y="26">API FastAPI</text><text class="s" x="14" y="46">feeds · búsqueda</text><text class="s" x="14" y="62">sesión con consentimiento</text><text class="s" x="14" y="78">votos · eventos</text><text class="s" x="14" y="94">brief · análisis · métricas</text><text class="s" x="14" y="110">traducción · chat (SSE)</text></g></g>
+      <g class="node" data-anim="node" transform="translate(780 150)"><g class="inner"><rect width="90" height="70" rx="10"/><text class="t" x="12" y="26">Caddy web</text><text class="s" x="12" y="44">React + TS</text><text class="s" x="12" y="58">estático</text></g></g>
+      <g class="node accent" data-anim="node" transform="translate(950 150)"><g class="inner"><rect width="70" height="80" rx="10"/><text class="t" x="10" y="26">Edge</text><text class="s" x="10" y="44">Caddy</text><text class="s" x="10" y="58">TLS</text><text class="s" x="10" y="72">:80 :443</text></g></g>
+      <g class="node" data-anim="node" transform="translate(1062 155)"><g class="inner"><rect width="50" height="70" rx="10"/><text class="t" x="7" y="32">Lector</text><text class="s" x="7" y="50">web</text></g></g>
+      <!-- packets -->
+      <circle class="packet" r="4.5" data-path="#e-reuters"/><circle class="packet" r="4.5" data-path="#e-ars"/><circle class="packet" r="4.5" data-path="#e-hn"/>
+      <circle class="packet" r="4.5" data-path="#e-worker-db"/>
+      <circle class="packet ai" r="4.5" data-path="#e-worker-ai"/><circle class="packet ai" r="4.5" data-path="#e-api-ai"/>
+      <circle class="packet req" r="4.5" data-path="#e-user-edge"/><circle class="packet req" r="4.5" data-path="#e-edge-web"/>
+      <circle class="packet req" r="4.5" data-path="#e-web-api"/><circle class="packet req" r="4.5" data-path="#e-api-db"/>
+    </svg>
+  </div>
+  <div class="legend"><span><i style="background:var(--packet)"></i>ingesta y escritura</span><span><i style="background:#b36ad9"></i>llamadas a Gemini</span><span><i style="background:#3a7bd5"></i>petición de un lector</span><span>Borde discontinuo: servicio externo</span></div>
+
+  <div class="grid2" style="margin-top:1.25rem">
+    <div class="card"><h4>Worker</h4><p>Cada 5 minutos descarga las tres fuentes en paralelo, deduplica, lee el artículo original para darle contexto a Gemini, enriquece lo nuevo (titular traducido, descripción, temas e importancia de 1 a 100), calcula la huella de cada noticia, analiza los hilos de HN con debate y rehace el brief del día si toca. Una vez al día borra el historial ligado a un lector con más de un año.</p></div>
+    <div class="card"><h4>API</h4><p>FastAPI asíncrona. Sirve los feeds, la búsqueda por significado, el árbol de comentarios de HN (descargado y traducido bajo demanda) con su análisis, el brief, las métricas y el chat sobre cada noticia en streaming. Registra votos y eventos en una sesión anónima solo si el lector lo acepta.</p></div>
+    <div class="card"><h4>Frontend</h4><p>React + TypeScript. Bilingüe, modo claro y oscuro, actualización cada minuto, animaciones con Motion y estado del lector (leídas, votos, consentimiento) en <code>localStorage</code>. Un panel flotante muestra los comentarios de HN o el chat de una noticia.</p></div>
+    <div class="card"><h4>Preguntar</h4><p>Un chat sobre cada noticia. Gemini responde en streaming a partir de la noticia (titular, descripción, inicio del artículo y comentarios de HN) y avisa cuando añade contexto general. Nada se guarda en el servidor.</p></div>
+    <div class="card"><h4>Consentimiento</h4><p>Sin aceptar no hay cookie: clics e impresiones se cuentan de forma anónima y los votos se quedan en el navegador. Al aceptar se crea una sesión anónima; retirarlo borra todo lo asociado y el historial caduca al año.</p></div>
+    <div class="card"><h4>Dos Caddy</h4><p>El <b>edge</b> es el único con puertos públicos y gestiona HTTPS para todos los dominios del servidor. El de MyNews solo habla HTTP dentro de Docker: sirve el frontend y reenvía <code>/api</code>.</p></div>
+  </div>
+</section>
+
+<!-- ───────────────────────────── HUELLAS ───────────────────────────── -->
+<section id="huellas">
+  <h2>Huellas de cada noticia</h2>
+  <p class="sub">Cada noticia tiene una huella de su significado: una lista de 768 números que calcula un modelo de embeddings. Dos textos que hablan de lo mismo tienen huellas parecidas aunque no compartan palabras ni idioma. Con ellas funciona la búsqueda, y serán la base de «Para ti».</p>
+  <div class="figure">
+    <svg id="fp" viewBox="0 0 1120 300" role="img" aria-labelledby="fp-title fp-desc">
+      <title id="fp-title">Cómo se crea y se usa una huella</title>
+      <desc id="fp-desc">El texto de la noticia pasa por el modelo de embeddings de Gemini, que devuelve 768 números que se guardan en PostgreSQL con pgvector. Una búsqueda se convierte en huella con el mismo modelo y pgvector devuelve las noticias con la huella más parecida.</desc>
+      <path class="edge" d="M260 80 L 320 80"/><path class="edge ai" d="M520 80 L 580 80"/><path class="edge" d="M810 80 L 870 80"/>
+      <path class="edge ai" d="M260 225 C 290 225, 290 120, 420 120"/><path class="edge" d="M985 120 L 985 185"/><path class="edge" d="M870 235 L 810 235"/>
+      <g class="node" transform="translate(20 30)"><rect width="240" height="100" rx="10"/><text class="t" x="14" y="26">Texto de la noticia</text><text class="s" x="14" y="46">titular + descripción + temas</text><text class="s" x="14" y="64">«Brazil heads to a runoff…»</text><text class="s" x="14" y="82">en inglés · una vez por noticia</text></g>
+      <g class="node ext accent" transform="translate(320 40)"><rect width="200" height="80" rx="10"/><text class="t" x="14" y="30">gemini-embedding-2</text><text class="s" x="14" y="52">3.072 → 768 dimensiones</text></g>
+      <g class="node accent" transform="translate(580 30)"><rect width="230" height="100" rx="10"/><text class="t" x="14" y="26">Huella</text><text class="s" x="14" y="50">[0,021, −0,113, 0,047, …]</text><text class="s" x="14" y="70">768 números</text></g>
+      <g class="node" transform="translate(870 40)"><rect width="230" height="80" rx="10"/><text class="t" x="14" y="26">PostgreSQL + pgvector</text><text class="s" x="14" y="46">tabla embeddings</text><text class="s" x="14" y="62">índice HNSW (coseno)</text></g>
+      <g class="node" transform="translate(20 190)"><rect width="240" height="70" rx="10"/><text class="t" x="14" y="28">Búsqueda «elecciones»</text><text class="s" x="14" y="48">misma huella, mismo modelo</text></g>
+      <g class="node accent" transform="translate(870 185)"><rect width="230" height="100" rx="10"/><text class="t" x="14" y="26">Huellas más parecidas</text><text class="s" x="14" y="50">0,70 · Brasil irá a segunda vuelta</text><text class="s" x="14" y="70">0,55 · TSMC produce más chips</text></g>
+      <g class="node" transform="translate(580 195)"><rect width="230" height="80" rx="10"/><text class="t" x="14" y="26">Resultados</text><text class="s" x="14" y="46">mejor ≥ 0,645 · cada uno ≥ 0,60</text><text class="s" x="14" y="62">a ≤ 0,08 del mejor · + frescura</text></g>
+    </svg>
+  </div>
+  <ol class="steps">
+    <li><b>Texto:</b> el titular, la descripción que escribió Gemini (o el extracto de la fuente) y los temas, en inglés. Es lo mismo para todas las fuentes, también para Reuters, de la que solo hay titular.</li>
+    <li><b>Modelo:</b> <code>gemini-embedding-2</code> devuelve 3.072 números y se le pide reducirlos a 768 (<code>outputDimensionality</code>): ocupan cuatro veces menos y caben en el índice HNSW de pgvector. Es multilingüe, así que una consulta en español encuentra noticias en inglés.</li>
+    <li><b>Cuándo:</b> el worker la calcula después del enriquecimiento, una sola vez por noticia, en tandas de 50 y como mucho 100 por pasada. El plan gratuito limita los textos por minuto, y cada 5 minutos sobra para las ~300 noticias de un día.</li>
+    <li><b>Dónde:</b> en la tabla <code>embeddings</code> (columna <code>vector(768)</code>) con un índice HNSW por distancia coseno, que encuentra las más parecidas sin recorrer todas.</li>
+    <li><b>Búsqueda:</b> la consulta se convierte en huella con el mismo modelo (y se guarda en memoria para no repetirla), pgvector devuelve las 60 más cercanas y se quedan las que de verdad tratan del tema, con un pequeño extra para las recientes.</li>
+  </ol>
+  <p class="sub" style="margin-top:1rem">Los umbrales se calibraron con consultas reales sobre unas 330 noticias:</p>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Consulta</th><th>Mejor similitud</th><th>Qué devuelve</th></tr></thead>
+    <tbody>
+      <tr><td>elecciones</td><td>0,68</td><td>Brasil, España, EE. UU.: elecciones en cualquier idioma</td></tr>
+      <tr><td>chips</td><td>0,67</td><td>AMD, Nvidia, TSMC, Qualcomm</td></tr>
+      <tr><td>rust programming</td><td>0,78</td><td>una sola noticia, la de Rust</td></tr>
+      <tr><td>xyzzy qwerty · fútbol</td><td>0,63 · 0,59</td><td>nada: ninguna noticia trata de eso</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ───────────────────────────── PDF → REALIDAD ───────────────────────────── -->
+<section id="pdf">
+  <h2>Del PDF a la realidad</h2>
+  <p class="sub">Cada preocupación de la especificación inicial y cómo se ha resuelto.</p>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Concepto del PDF</th><th>Cómo está aplicado</th><th>Estado</th></tr></thead>
+    <tbody>
+      <tr><td>Agregación multi-fuente</td><td>Reuters por su sitemap (sección real en la URL), Ars por RSS (AI, Biz &amp; IT, Security), HN por <code>/front</code> en su mismo orden.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Ingesta idempotente</td><td>Upsert por <code>(source, external_id)</code>: repetir una ingesta no duplica nada y actualiza puntos, titular y hora.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Deduplicación</td><td>URL normalizada (sin tracking, www, barra final) y similitud de titulares.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Comentarios HN como árbol</td><td>Una fila por comentario con padre, profundidad y posición; árbol reconstruido con CTE recursiva; marca de borrados.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Cliente de IA intercambiable</td><td>Interfaz <code>AIClient</code> (generar, JSON validado con Pydantic, embeddings) con implementación Gemini.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Cuotas del free tier</td><td>Limitador por modelo con cola de prioridades, reintentos exponenciales ante 429/503, Flash → Flash-Lite con enfriamiento de 1 h.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Etapa 0: enriquecimiento global</td><td>Una vez por artículo y en lotes: titular traducido, descripción EN/ES, temas e importancia de 1 a 100 según una rúbrica pensada para un líder tecnológico.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>«Lo importante hoy»</td><td>Importancia más cobertura (otros medios) y puntos de HN, reducida a la mitad cada 18 h, con equilibrio de fuentes.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Briefing diario</td><td>Un único brief del día con un solo prompt: las 7 noticias más importantes de mundo y las 7 de tecnología, en 5 o 6 frases (viñetas en el móvil). El agente con herramientas se ha descartado.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Eventos y feedback</td><td>Impresiones, clics, votos, leídas y preguntas. Con consentimiento se ligan a una sesión anónima en la tabla <code>events</code>; sin él, son recuentos anónimos y los votos se quedan en <code>localStorage</code>.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Embeddings y búsqueda semántica</td><td>Una huella de 768 números por noticia con <code>gemini-embedding-2</code>, en pgvector con índice HNSW; búsqueda por significado entre idiomas con umbrales calibrados.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Análisis de hilos HN</td><td>En hilos de 30 comentarios o más: tono, puntos de debate con cada postura, aportaciones y enlaces compartidos (solo URLs que aparecen en el hilo). Se rehace cuando el hilo crece un 50 %.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Feed «Para ti»</td><td>Los votos ya se guardan en cada navegador; falta analizarlos para crear contenido segmentado por los gustos de cada lector.</td><td><span class="chip todo">pendiente</span></td></tr>
+      <tr><td>Evals</td><td>Set etiquetado a mano y métricas de ranking en el CI: fuera de la 1.0.</td><td><span class="chip todo">pendiente</span></td></tr>
+      <tr><td>MCP, agente del briefing, A/B</td><td>Descartados: con un solo lector y un proyecto de este tamaño no aportan lo que cuestan.</td><td><span class="chip off">descartado</span></td></tr>
+      <tr><td>Docker, Caddy, HTTPS, CI/CD</td><td>Compose en el VPS tras un proxy común con TLS automático; CI y despliegue continuo en GitHub Actions.</td><td><span class="chip ok">hecho</span></td></tr>
+      <tr><td>Seguridad</td><td>Base de datos sin exponer, secretos fuera del repo, despliegue solo desde <code>main</code>, sesión con cookie HttpOnly y hash del token, límites por visitante en el chat.</td><td><span class="chip ok">hecho</span></td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ───────────────────────────── CÓDIGO ───────────────────────────── -->
+<section id="codigo">
+  <h2>Código clave</h2>
+  <p class="sub">Los fragmentos que mejor explican cómo funciona cada pieza.</p>
+  <div class="tabs" data-tabs>
+    <div class="tablist" role="tablist" aria-label="Fragmentos de código">
+      <button role="tab" aria-selected="true" aria-controls="t1" id="b1">Upsert idempotente</button>
+      <button role="tab" aria-selected="false" aria-controls="t2" id="b2">Árbol de comentarios</button>
+      <button role="tab" aria-selected="false" aria-controls="t3" id="b3">Limitador</button>
+      <button role="tab" aria-selected="false" aria-controls="t4" id="b4">Salida estructurada</button>
+      <button role="tab" aria-selected="false" aria-controls="t5" id="b5">Resumen con respaldo</button>
+      <button role="tab" aria-selected="false" aria-controls="t6" id="b6">Importancia y frescura</button>
+      <button role="tab" aria-selected="false" aria-controls="t7" id="b7">Chat en streaming</button>
+      <button role="tab" aria-selected="false" aria-controls="t8" id="b8">Huellas y búsqueda</button>
+      <button role="tab" aria-selected="false" aria-controls="t9" id="b9">Análisis de hilos</button>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="t1" aria-labelledby="b1">
+<pre><code class="language-python"># backend/app/ingest/service.py
+stmt = insert(Article).values(**values)
+update_cols = {c: stmt.excluded[c] for c in UPDATABLE}   # headline, section, time, points…
+article_id = (await session.execute(
+    stmt.on_conflict_do_update(constraint="uq_articles_source_external_id", set_=update_cols)
+    .returning(Article.id)
+)).scalar_one()</code></pre>
+      <p class="note">Una restricción única en <code>(source, external_id)</code> convierte cada inserción en «insertar o actualizar»: la ingesta puede repetirse cada 5 minutos sin duplicar.</p>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="t2" aria-labelledby="b2" hidden>
+<pre><code class="language-sql">-- backend/app/api/routes.py
+WITH RECURSIVE tree AS (
+    SELECT id, author, text, text_es, created_at, depth, ARRAY[sibling_rank] AS path
+    FROM hn_comments WHERE story_id = :story AND parent_id = :story AND NOT deleted
+    UNION ALL
+    SELECT c.id, c.author, c.text, c.text_es, c.created_at, c.depth, t.path || c.sibling_rank
+    FROM hn_comments c JOIN tree t ON c.parent_id = t.id WHERE NOT c.deleted
+)
+SELECT id, author, text, text_es, created_at, depth FROM tree ORDER BY path</code></pre>
+      <p class="note">Los comentarios se guardan planos y la consulta recursiva los devuelve en orden de lectura; el frontend reconstruye el árbol con una pila.</p>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="t3" aria-labelledby="b3" hidden>
+<pre><code class="language-python"># backend/app/ai/limiter.py — token bucket + daily counter + priority queue
+async def acquire(self, priority: Priority = Priority.ENRICHMENT) -> None:
+    self._roll_day()                      # the day resets at midnight Pacific time
+    if 0 &lt; self.rpd &lt;= self._used_today:
+        raise QuotaExhausted("daily quota exhausted")
+    if self.rpm &lt;= 0:                     # no limit configured: no queue
+        self._used_today += 1
+        return
+    fut = asyncio.get_running_loop().create_future()
+    heapq.heappush(self._waiters, (int(priority), next(self._seq), fut))   # For You before the briefing
+    ...</code></pre>
+      <p class="note">Cada modelo tiene su limitador. Si la cuota se agota, el llamador degrada en lugar de romper.</p>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="t4" aria-labelledby="b4" hidden>
+<pre><code class="language-python"># backend/app/enrich/stage0.py — Gemini answers in JSON validated by Pydantic
+class EnrichedItem(BaseModel):
+    id: int
+    title_es: str = Field(max_length=400)
+    summary_en: str = Field(default="", max_length=400)
+    summary_es: str = Field(default="", max_length=450)
+    topics: list[str] = Field(max_length=4)
+    importance: int = Field(ge=1, le=100)
+
+result = await ai.generate_json(prompt, EnrichmentBatch, model=cfg.gemini_model_lite, task="enrich",
+                                priority=Priority.ENRICHMENT, system=system_prompt(today))</code></pre>
+      <p class="note">El esquema viaja a Gemini como <code>responseJsonSchema</code> y la respuesta se valida: una salida mal formada nunca llega a la base de datos.</p>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="t5" aria-labelledby="b5" hidden>
+<pre><code class="language-python"># backend/app/enrich/digest.py — quality first, availability always
+models = [cfg.gemini_model_flash, cfg.gemini_model_lite]
+if now &lt; _flash_paused_until:            # after a 429 from Flash, one hour straight to Lite
+    models = [cfg.gemini_model_lite]
+for model in models:
+    try:
+        out = await ai.generate_json(build_prompt(stories, kind), DigestOut, model=model, ...)
+        break
+    except (AIError, QuotaExhausted) as exc:
+        if model == cfg.gemini_model_flash and "429" in str(exc):
+            _flash_paused_until = now + FLASH_COOLDOWN</code></pre>
+      <p class="note">Los tres resúmenes solo se rehacen si cambian las noticias principales (y han pasado 30 min) o cada 3 horas.</p>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="t6" aria-labelledby="b6" hidden>
+<pre><code class="language-python"># backend/app/ranking.py — Gemini's importance plus what the server measures itself
+def score(article: Article, now: datetime, coverage: int = 0) -> float:
+    base = article.global_score or 0.0                     # importance 1-100 from stage 0, as 0-1
+    base += COVERAGE_BONUS * min(coverage, MAX_COVERAGE)   # other outlets reporting the story
+    if article.hn_points:
+        base += HN_BONUS * min(article.hn_points / HN_FULL_POINTS, 1)
+    age_hours = max((now - article.published_at).total_seconds() / 3600, 0)
+    return base * math.pow(0.5, age_hours / HALF_LIFE_HOURS)   # halves every 18 h</code></pre>
+      <p class="note">Gemini puntúa con una rúbrica para un líder tecnológico (tecnología, seguridad y geopolítica que mueve mercados) y anclas de 1 a 100. Si cambia la rúbrica se sube <code>SCORE_VERSION</code> y el worker vuelve a puntuar las últimas 48 h.</p>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="t7" aria-labelledby="b7" hidden>
+<pre><code class="language-python"># backend/app/chat.py — server-sent events, Flash-Lite first, Flash as the backup
+async def answer(ai: AIClient, system: str, body: ChatIn) -> AsyncIterator[str]:
+    turns = [(m.role, m.text) for m in body.messages]     # the browser keeps the conversation
+    sent = False
+    for model in (cfg.gemini_model_lite, cfg.gemini_model_flash):
+        try:
+            async for chunk in ai.stream_chat(turns, model=model, task=TASK, system=system, ...):
+                sent = True
+                yield _event("delta", {"text": chunk})
+            yield _event("done", {"model": model})
+            return
+        except (AIError, QuotaExhausted):
+            if sent:                                       # text already on screen: no restart
+                break
+    yield _event("error", {"code": "unavailable"})</code></pre>
+      <p class="note">Lite empieza a responder en menos de un segundo. El servidor no guarda conversaciones y limita a 20 preguntas por hora por visitante y 400 al día en total, con la IP real que le pasa Caddy.</p>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="t8" aria-labelledby="b8" hidden>
+<pre><code class="language-python"># backend/app/enrich/embeddings.py — the text that becomes each story's fingerprint
+def article_text(article: Article) -> str:
+    parts = [article.title]
+    if description := article.ai_summary_en or article.summary:
+        parts.append(description[:600])
+    if article.topics:
+        parts.append("Topics: " + ", ".join(article.topics))
+    return "\n".join(parts)
+
+vectors = await ai.embed([article_text(a) for a in batch], task="embed_articles")   # 768 numbers each
+
+# backend/app/search.py — the query gets a fingerprint too; pgvector returns the closest
+distance = Embedding.vector.cosine_distance(await query_vector(ai, query))
+rows = await session.execute(
+    select(Article, distance).join(Embedding, ...).order_by(distance).limit(CANDIDATES))
+if 1 - rows[0].distance &lt; MIN_BEST:   # nothing is really about the query
+    return []</code></pre>
+      <p class="note">El índice HNSW resuelve el <code>ORDER BY distance LIMIT 60</code> sin recorrer la tabla. Por debajo de 0,645 de similitud en el mejor resultado no se devuelve nada: así una consulta sin sentido no muestra noticias al azar.</p>
+    </div>
+    <div class="tabpanel" role="tabpanel" id="t9" aria-labelledby="b9" hidden>
+<pre><code class="language-python"># backend/app/enrich/threads.py — Gemini reads the opening of the thread; links must be real
+thread, everything = await conversation(session, story_id)   # top comments and replies, indented
+out = await ai.generate_json(build_prompt(article, thread), InsightOut, model=cfg.gemini_model_lite,
+                             task="thread_insight", priority=Priority.HN_ANALYSIS, system=SYSTEM)
+resources = [r.model_dump() for r in out.resources
+             if r.url.startswith("http") and r.url in everything]   # an invented URL is dropped</code></pre>
+      <p class="note">Entran los comentarios principales y dos niveles de respuestas, en orden de lectura y hasta unos 24.000 caracteres. El análisis se muestra encima del hilo en el panel de comentarios.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────────── CI/CD ───────────────────────────── -->
+<section id="cicd">
+  <h2>CI/CD</h2>
+  <p class="sub">Un push a <code>main</code> pasa por el CI y, si sale en verde, se publica y se despliega sin intervención.</p>
+  <div class="figure">
+    <svg id="pipeline" viewBox="0 0 1120 300" role="img" aria-labelledby="pl-title">
+      <title id="pl-title">Pipeline: push, CI con tres jobs en paralelo, publicación de imágenes, despliegue y comprobación de salud</title>
+      <path id="p-a" class="edge" d="M150 150 C 190 150, 200 70, 240 70"/>
+      <path id="p-b" class="edge" d="M150 150 L 240 150"/>
+      <path id="p-c" class="edge" d="M150 150 C 190 150, 200 230, 240 230"/>
+      <path id="p-d" class="edge" d="M440 70 C 480 70, 490 150, 530 150"/>
+      <path id="p-e" class="edge" d="M440 150 L 530 150"/>
+      <path id="p-f" class="edge" d="M440 230 C 480 230, 490 150, 530 150"/>
+      <path id="p-g" class="edge" d="M710 150 L 760 150"/>
+      <path id="p-h" class="edge" d="M940 150 L 980 150"/>
+      <g class="stage" data-step="0" transform="translate(20 115)"><g class="inner"><rect width="130" height="70" rx="10"/><text class="t" x="14" y="30">git push main</text><text class="s" x="14" y="50">o PR (solo CI)</text></g></g>
+      <g class="stage" data-step="1" transform="translate(240 40)"><g class="inner"><rect width="200" height="60" rx="10"/><text class="t" x="14" y="26">Backend</text><text class="s" x="14" y="44">ruff · pytest + pgvector · migraciones</text></g></g>
+      <g class="stage" data-step="1" transform="translate(240 120)"><g class="inner"><rect width="200" height="60" rx="10"/><text class="t" x="14" y="26">Frontend</text><text class="s" x="14" y="44">tsc · vitest · vite build</text></g></g>
+      <g class="stage" data-step="1" transform="translate(240 200)"><g class="inner"><rect width="200" height="60" rx="10"/><text class="t" x="14" y="26">Imágenes Docker</text><text class="s" x="14" y="44">backend y frontend (buildx)</text></g></g>
+      <g class="stage" data-step="2" transform="translate(530 110)"><g class="inner"><rect width="180" height="80" rx="10"/><text class="t" x="14" y="28">Publicar en GHCR</text><text class="s" x="14" y="48">etiqueta = SHA del commit</text><text class="s" x="14" y="64">y latest</text></g></g>
+      <g class="stage" data-step="3" transform="translate(760 110)"><g class="inner"><rect width="180" height="80" rx="10"/><text class="t" x="14" y="28">Desplegar por SSH</text><text class="s" x="14" y="48">pull + up -d</text><text class="s" x="14" y="64">migraciones al arrancar</text></g></g>
+      <g class="stage" data-step="4" transform="translate(980 115)"><g class="inner"><rect width="120" height="70" rx="10"/><text class="t" x="14" y="30">/api/health</text><text class="s" x="14" y="50">200 = éxito</text></g></g>
+      <text class="elabel" x="270" y="24">CI · en paralelo</text>
+      <text class="elabel" x="560" y="96">Deploy · solo push a main</text>
+      <text class="blocked" x="20" y="285">✕ PR desde un fork: el CI espera tu aprobación y nunca dispara el despliegue</text>
+    </svg>
+  </div>
+
+  <h3>CI: <code>.github/workflows/ci.yml</code></h3>
+  <ol class="steps">
+    <li><b>Backend:</b> lint con ruff, tests con PostgreSQL + pgvector reales como servicio, y las migraciones aplicadas desde cero con <code>alembic check</code> para detectar deriva entre modelos y esquema.</li>
+    <li><b>Frontend:</b> <code>npm ci</code>, tipos con <code>tsc</code>, tests con Vitest y build de producción.</li>
+    <li><b>Imágenes:</b> construye las dos imágenes Docker con caché de GitHub para asegurar que el despliegue podrá hacerse.</li>
+    <li><b>Eficiencia:</b> permisos de solo lectura, cancela ejecuciones obsoletas de la misma rama y no se ejecuta si solo cambian documentos.</li>
+  </ol>
+
+  <h3>CD: <code>.github/workflows/deploy.yml</code></h3>
+  <div class="grid2">
+<pre><code class="language-yaml"># Only a green CI run from a push to main in this repository
+if: >-
+  github.event_name == 'workflow_dispatch' || (
+    github.event.workflow_run.conclusion == 'success' &amp;&amp;
+    github.event.workflow_run.event == 'push' &amp;&amp;
+    github.event.workflow_run.head_branch == 'main' &amp;&amp;
+    github.event.workflow_run.head_repository.full_name == github.repository
+  )</code></pre>
+<pre><code class="language-bash"># On the server: GHCR credentials only for the pull
+echo "$REGISTRY_TOKEN" | ssh -i ~/.ssh/id_deploy "$TARGET" \
+  "docker login ghcr.io -u $ACTOR --password-stdin &amp;&amp; \
+   cd $DEPLOY_PATH &amp;&amp; export IMAGE_TAG=$TAG &amp;&amp; \
+   docker compose -f infra/docker-compose.prod.yml pull api worker web; \
+   docker logout ghcr.io; \
+   docker compose -f infra/docker-compose.prod.yml up -d --no-build"</code></pre>
+  </div>
+  <div class="callout"><b>Por qué esas cuatro condiciones.</b> <code>workflow_run</code> se ejecuta con los secretos del repositorio incluso cuando el CI lo disparó una pull request de un fork, cuya rama puede llamarse <code>main</code>. Exigir <code>event == 'push'</code> y que el repositorio de origen sea este impide desplegar código ajeno.</div>
+  <div class="grid2">
+    <div class="card"><h4>Secretos y acceso</h4><p>Clave SSH exclusiva de despliegue y huella del servidor en el environment <code>production</code>; el token de GHCR caduca al acabar el job.</p></div>
+    <div class="card"><h4>Vuelta atrás</h4><p>«Run workflow» con el SHA anterior: las imágenes están etiquetadas por commit.</p></div>
+    <div class="card"><h4>Repositorio protegido</h4><p>Sin force-push ni borrado en <code>main</code>, escaneo de secretos con bloqueo en el push y aprobación obligatoria para workflows de externos.</p></div>
+    <div class="card"><h4>Dependencias</h4><p>Dependabot mensual y agrupado: como mucho una PR por ecosistema, siempre validada por el CI.</p></div>
+  </div>
+</section>
+
+<!-- ───────────────────────────── DOMINIO ───────────────────────────── -->
+<section id="dominio">
+  <h2>Dominio y páginas</h2>
+  <p class="sub">janguzman.com está en Namecheap; tres registros A apuntan al VPS y el proxy común decide qué sirve cada nombre.</p>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Nombre</th><th>Registro DNS</th><th>Qué sirve</th></tr></thead>
+    <tbody>
+      <tr><td>news.janguzman.com</td><td>A → VPS</td><td>MyNews, con certificado de Let's Encrypt emitido y renovado por el edge.</td></tr>
+      <tr><td>janguzman.com</td><td>A → VPS</td><td>Aún sin sitio en el proxy: pendiente de configurar.</td></tr>
+      <tr><td>www.janguzman.com</td><td>A → VPS</td><td>Igual que el dominio raíz.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <h3>Páginas y rutas de news.janguzman.com</h3>
+  <div class="table-wrap">
+  <table>
+    <thead><tr><th>Ruta</th><th>Qué es</th></tr></thead>
+    <tbody>
+      <tr><td><a href="https://news.janguzman.com/">/</a></td><td>La web: portada con el brief, «Lo importante hoy», «Última hora» con buscador, panel de comentarios (con su análisis) y chat, diálogos de fuentes y de privacidad.</td></tr>
+      <tr><td><a href="https://news.janguzman.com/api/health">/api/health</a></td><td>Salud de la API y la base de datos (la usa el CD).</td></tr>
+      <tr><td><a href="https://news.janguzman.com/api/feed/important">/api/feed/important</a></td><td>Las cinco noticias más importantes del último día (importancia, cobertura y frescura).</td></tr>
+      <tr><td><a href="https://news.janguzman.com/api/feed/latest?source=hn">/api/feed/latest</a></td><td>Cronología con filtros <code>source</code>, <code>section</code>, <code>before</code> y <code>offset</code>.</td></tr>
+      <tr><td><a href="https://news.janguzman.com/api/digest">/api/digest</a></td><td>El brief del día con sus viñetas.</td></tr>
+      <tr><td><a href="https://news.janguzman.com/api/search?q=elecciones">/api/search?q=</a></td><td>Búsqueda por significado, en cualquier idioma.</td></tr>
+      <tr><td>/api/articles/{id}/insight</td><td>Lo que dice la comunidad en un hilo de HN.</td></tr>
+      <tr><td>/api/articles/{id}/comments</td><td>Árbol de comentarios de HN, <code>?lang=es</code> para traducirlo.</td></tr>
+      <tr><td>/api/articles/{id}/chat</td><td>Chat «Preguntar»: respuesta en streaming (SSE) sobre una noticia.</td></tr>
+      <tr><td>/api/session · /api/events · …/feedback</td><td>Sesión anónima solo con consentimiento (<code>DELETE /session</code> la borra con todos sus datos), eventos y votos.</td></tr>
+      <tr><td><a href="https://news.janguzman.com/api/metrics">/api/metrics</a></td><td>Volumen ingerido y uso de Gemini en las últimas 24 h.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<!-- ───────────────────────────── CADDY EN EL VPS ───────────────────────────── -->
+<section id="vps">
+  <h2>Caddy en un VPS compartido</h2>
+  <p class="sub">El servidor ya alojaba otros proyectos y uno de ellos tenía su propio Caddy ocupando los puertos 80 y 443. MyNews no podía levantar otro.</p>
+  <div class="toggle" role="group" aria-label="Estado del servidor">
+    <button aria-pressed="false" data-state="before">Antes</button>
+    <button aria-pressed="true" data-state="after">Después</button>
+  </div>
+  <div class="figure">
+    <svg id="vps-svg" viewBox="0 0 1000 300" role="img" aria-labelledby="vps-title">
+      <title id="vps-title">Antes, el Caddy de un proyecto previo ocupaba los puertos públicos. Después, un proxy común con TLS reparte el tráfico por la red interna edge.</title>
+      <g class="node ext" transform="translate(20 115)"><g class="inner"><rect width="110" height="70" rx="10"/><text class="t" x="14" y="32">Internet</text><text class="s" x="14" y="50">:80 · :443</text></g></g>
+      <!-- before -->
+      <g id="before" opacity="0">
+        <path class="edge" d="M130 150 L 260 150"/>
+        <g class="node" transform="translate(260 100)"><g class="inner"><rect width="230" height="100" rx="10"/><text class="t" x="14" y="28">Caddy de un proyecto previo</text><text class="s" x="14" y="48">dueño de :80 y :443 y de sus certificados</text><text class="s" x="14" y="66">sirve solo su propia web</text></g></g>
+        <path class="edge" d="M490 150 L 560 150"/>
+        <g class="node" transform="translate(560 115)"><g class="inner"><rect width="150" height="70" rx="10"/><text class="t" x="14" y="32">Proyecto previo</text><text class="s" x="14" y="50">su app</text></g></g>
+        <g class="node ext" transform="translate(760 115)"><g class="inner"><rect width="200" height="70" rx="10"/><text class="t" x="14" y="32">MyNews</text><text class="blocked" x="14" y="52">✕ no puede usar :80/:443</text></g></g>
+      </g>
+      <!-- after -->
+      <g id="after">
+        <path class="edge" d="M130 150 L 250 150"/>
+        <g class="node accent" transform="translate(250 95)"><g class="inner"><rect width="200" height="110" rx="10"/><text class="t" x="14" y="28">Edge · Caddy común</text><text class="s" x="14" y="48">único con :80 y :443</text><text class="s" x="14" y="64">TLS de todos los dominios</text><text class="s" x="14" y="80">certificados reutilizados</text></g></g>
+        <g class="zone"><rect x="500" y="40" width="470" height="220" rx="14"/><text x="516" y="62">red Docker «edge» · solo HTTP interno</text></g>
+        <path class="edge" d="M450 140 C 500 140, 510 110, 560 110"/>
+        <path class="edge" d="M450 165 C 500 165, 510 195, 560 195"/>
+        <g class="node" transform="translate(560 78)"><g class="inner"><rect width="380" height="64" rx="10"/><text class="t" x="14" y="26">Proyecto previo · alias interno</text><text class="s" x="14" y="44">su Caddy ya sin puertos públicos; confía en el edge para la IP real</text></g></g>
+        <g class="node accent" transform="translate(560 162)"><g class="inner"><rect width="380" height="64" rx="10"/><text class="t" x="14" y="26">MyNews · mynews-web</text><text class="s" x="14" y="44">Caddy en :80 → frontend + /api (sin puertos publicados)</text></g></g>
+      </g>
+    </svg>
+  </div>
+  <div class="grid2" style="margin-top:1rem">
+<pre><code class="language-caddyfile"># ~/edge/Caddyfile — one block per site
+otro-proyecto.example, www.otro-proyecto.example {
+	reverse_proxy otro-proyecto-web:80
+}
+
+news.janguzman.com {
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy mynews-web:80 {
+		lb_try_duration 8s
+	}
+}</code></pre>
+<pre><code class="language-yaml"># infra/docker-compose.prod.yml — MyNews publishes no ports
+web:
+  image: ghcr.io/imhauke/my-news-frontend:${IMAGE_TAG:-latest}
+  networks:
+    default:
+    edge:
+      aliases: [mynews-web]
+
+networks:
+  edge:
+    external: true</code></pre>
+  </div>
+  <ol class="steps" style="margin-top:1rem">
+    <li><b>Proxy común:</b> un Caddy nuevo en su propia carpeta, dueño de los puertos públicos y de HTTPS para todos los dominios.</li>
+    <li><b>Certificados:</b> se copiaron los existentes al volumen del edge, así que no hubo que volver a emitirlos.</li>
+    <li><b>Proyecto previo:</b> su Caddy pasó a HTTP interno, con las mismas cabeceras de seguridad y rutas, y con <code>trusted_proxies</code> para seguir viendo la IP real del visitante. Se comprobó que una IP falsificada se ignora.</li>
+    <li><b>Corte:</b> unos 3 segundos sin servicio, con vuelta atrás automática preparada si la web no respondía.</li>
+    <li><b>MyNews:</b> se une a la red <code>edge</code> con el alias <code>mynews-web</code>; añadir otro proyecto es un bloque más en el Caddyfile del edge.</li>
+  </ol>
+</section>
+
+<!-- ───────────────────────────── PENDIENTE ───────────────────────────── -->
+<section id="pendiente">
+  <h2>Lo que falta</h2>
+  <div class="grid2">
+    <div class="card"><h4>Contenido según los gustos de cada lector</h4><p>Analizar los datos de cada lector (sus votos y, con consentimiento, lo que abre y pregunta) para crear contenido segmentado por sus gustos: una portada «Para ti», que se pueda activar y desactivar, ordenada por la afinidad con las huellas de lo que le gustó junto con la importancia y la frescura, con variedad, algo de exploración y un motivo en cada noticia. Los votos irían desde el navegador en cada petición, sin guardar un perfil en el servidor.</p></div>
+  </div>
+</section>
+
+<footer class="end">MyNews · documento interno de arquitectura</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/yaml.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/animejs@4.5.0/dist/bundles/anime.umd.min.js"></script>
+<script>
+
+  // ── Language: Spanish is written in the page; English comes from this dictionary. The default
+  //    follows the browser, and the choice is remembered. ──
+  const EN = {"Cómo está construida la aplicación de punta a punta, cómo llega cada cambio a producción y qué conceptos de la especificación inicial están ya aplicados, con el código que los resuelve.": "How the app is built end to end, how every change reaches production and which concepts from the original specification are already in place, with the code that implements them.", "<b>news.janguzman.com</b> en producción": "<b>news.janguzman.com</b> in production", "<b>3</b> fuentes · refresco cada <b>5 min</b>": "<b>3</b> sources · refreshed every <b>5 min</b>", "Arquitectura": "Architecture", "Del PDF a la realidad": "From the PDF to reality", "Código clave": "Key code", "Dominio y páginas": "Domain and pages", "Caddy en el VPS": "Caddy on the VPS", "Lo que falta": "What is left", "Arquitectura de punta a punta": "End-to-end architecture", "Todo corre en un VPS con Docker Compose salvo Gemini y las fuentes. Los puntos que circulan son datos: verdes los de ingesta, morados las llamadas a la IA y azules las peticiones de un lector.": "Everything runs on a VPS with Docker Compose except Gemini and the sources. The moving dots are data: green for ingestion, purple for AI calls and blue for a reader's requests.", "Arquitectura de MyNews": "MyNews architecture", "Las fuentes alimentan al worker, que guarda en PostgreSQL y consulta a Gemini. El lector entra por el proxy común con HTTPS, que reenvía al Caddy de MyNews, que sirve el frontend y reenvía /api a la API FastAPI, que lee de PostgreSQL.": "The sources feed the worker, which stores in PostgreSQL and calls Gemini. The reader comes in through the shared HTTPS proxy, which forwards to MyNews's Caddy, which serves the frontend and forwards /api to the FastAPI API, which reads from PostgreSQL.", "Docker Compose · proyecto mynews": "Docker Compose · mynews project", "cada 5 min": "every 5 min", "red edge": "edge network", "sitemap de noticias": "news sitemap", "RSS por sección": "RSS per section", "ingesta y deduplicación": "ingestion and dedup", "votos · eventos": "votes · events", "estático": "static", "Lector": "Reader", "<i style=\"background:var(--packet)\"></i>ingesta y escritura": "<i style=\"background:var(--packet)\"></i>ingestion and writes", "<i style=\"background:#b36ad9\"></i>llamadas a Gemini": "<i style=\"background:#b36ad9\"></i>calls to Gemini", "<i style=\"background:#3a7bd5\"></i>petición de un lector": "<i style=\"background:#3a7bd5\"></i>a reader's request", "Borde discontinuo: servicio externo": "Dashed border: external service", "Dos Caddy": "Two Caddy servers", "El <b>edge</b> es el único con puertos públicos y gestiona HTTPS para todos los dominios del servidor. El de MyNews solo habla HTTP dentro de Docker: sirve el frontend y reenvía <code>/api</code>.": "The <b>edge</b> is the only one with public ports and handles HTTPS for every domain on the server. MyNews's own only speaks HTTP inside Docker: it serves the frontend and forwards <code>/api</code>.", "Cada preocupación de la especificación inicial y cómo se ha resuelto.": "Each concern from the original specification and how it was addressed.", "Concepto del PDF": "Concept in the PDF", "Cómo está aplicado": "How it is implemented", "Estado": "Status", "<span class=\"chip ok\">hecho</span>": "<span class=\"chip ok\">done</span>", "<span class=\"chip part\">parcial</span>": "<span class=\"chip part\">partial</span>", "<span class=\"chip todo\">pendiente</span>": "<span class=\"chip todo\">to do</span>", "Agregación multi-fuente": "Multi-source aggregation", "Reuters por su sitemap (sección real en la URL), Ars por RSS (AI, Biz &amp; IT, Security), HN por <code>/front</code> en su mismo orden.": "Reuters through its sitemap (real section from the URL), Ars through RSS (AI, Biz &amp; IT, Security), HN through <code>/front</code> in its own order.", "Ingesta idempotente": "Idempotent ingestion", "Upsert por <code>(source, external_id)</code>: repetir una ingesta no duplica nada y actualiza puntos, titular y hora.": "Upsert on <code>(source, external_id)</code>: re-running an ingestion duplicates nothing and updates points, headline and time.", "Deduplicación": "Deduplication", "URL normalizada (sin tracking, www, barra final) y similitud de titulares.": "Normalised URL (no tracking, www or trailing slash) and headline similarity.", "Comentarios HN como árbol": "HN comments as a tree", "Una fila por comentario con padre, profundidad y posición; árbol reconstruido con CTE recursiva; marca de borrados.": "One row per comment with parent, depth and position; tree rebuilt with a recursive CTE; deleted comments flagged.", "Cliente de IA intercambiable": "Swappable AI client", "Interfaz <code>AIClient</code> (generar, JSON validado con Pydantic, embeddings) con implementación Gemini.": "<code>AIClient</code> interface (generate, JSON validated with Pydantic, embeddings) with a Gemini implementation.", "Cuotas del free tier": "Free-tier quotas", "Limitador por modelo con cola de prioridades, reintentos exponenciales ante 429/503, Flash → Flash-Lite con enfriamiento de 1 h.": "Per-model rate limiter with a priority queue, exponential retries on 429/503, Flash → Flash-Lite with a 1 h cooldown.", "Etapa 0: enriquecimiento global": "Stage 0: global enrichment", "«Lo importante hoy»": "Today's essentials", "Briefing diario": "Daily briefing", "Eventos y feedback": "Events and feedback", "Embeddings y búsqueda semántica": "Embeddings and semantic search", "Feed «Para ti»": "For You feed", "Compose en el VPS tras un proxy común con TLS automático; CI y despliegue continuo en GitHub Actions.": "Compose on the VPS behind a shared proxy with automatic TLS; CI and continuous deployment on GitHub Actions.", "Seguridad": "Security", "Los fragmentos que mejor explican cómo funciona cada pieza.": "The snippets that best explain how each piece works.", "Upsert idempotente": "Idempotent upsert", "Árbol de comentarios": "Comment tree", "Limitador": "Rate limiter", "Salida estructurada": "Structured output", "Resumen con respaldo": "Overview with fallback", "Una restricción única en <code>(source, external_id)</code> convierte cada inserción en «insertar o actualizar»: la ingesta puede repetirse cada 5 minutos sin duplicar.": "A unique constraint on <code>(source, external_id)</code> turns every insert into “insert or update”: ingestion can run every 5 minutes without duplicates.", "Los comentarios se guardan planos y la consulta recursiva los devuelve en orden de lectura; el frontend reconstruye el árbol con una pila.": "Comments are stored flat and the recursive query returns them in reading order; the frontend rebuilds the tree with a stack.", "Cada modelo tiene su limitador. Si la cuota se agota, el llamador degrada en lugar de romper.": "Each model has its own limiter. When the quota runs out, the caller degrades instead of failing.", "El esquema viaja a Gemini como <code>responseJsonSchema</code> y la respuesta se valida: una salida mal formada nunca llega a la base de datos.": "The schema is sent to Gemini as <code>responseJsonSchema</code> and the answer is validated: malformed output never reaches the database.", "Los tres resúmenes solo se rehacen si cambian las noticias principales (y han pasado 30 min) o cada 3 horas.": "The three overviews are only rewritten when the top stories change (and 30 min have passed) or every 3 hours.", "Un push a <code>main</code> pasa por el CI y, si sale en verde, se publica y se despliega sin intervención.": "A push to <code>main</code> goes through CI and, if green, is published and deployed with no manual step.", "Pipeline: push, CI con tres jobs en paralelo, publicación de imágenes, despliegue y comprobación de salud": "Pipeline: push, CI with three parallel jobs, image publishing, deployment and health check", "o PR (solo CI)": "or PR (CI only)", "ruff · pytest + pgvector · migraciones": "ruff · pytest + pgvector · migrations", "Imágenes Docker": "Docker images", "backend y frontend (buildx)": "backend and frontend (buildx)", "Publicar en GHCR": "Publish to GHCR", "etiqueta = SHA del commit": "tag = commit SHA", "y latest": "and latest", "Desplegar por SSH": "Deploy over SSH", "migraciones al arrancar": "migrations on start", "200 = éxito": "200 = success", "CI · en paralelo": "CI · in parallel", "Deploy · solo push a main": "Deploy · push to main only", "✕ PR desde un fork: el CI espera tu aprobación y nunca dispara el despliegue": "✕ PR from a fork: CI waits for your approval and never triggers a deploy", "<b>Backend:</b> lint con ruff, tests con PostgreSQL + pgvector reales como servicio, y las migraciones aplicadas desde cero con <code>alembic check</code> para detectar deriva entre modelos y esquema.": "<b>Backend:</b> ruff lint, tests against a real PostgreSQL + pgvector service, and migrations applied from scratch with <code>alembic check</code> to catch drift between models and schema.", "<b>Frontend:</b> <code>npm ci</code>, tipos con <code>tsc</code>, tests con Vitest y build de producción.": "<b>Frontend:</b> <code>npm ci</code>, type checks with <code>tsc</code>, Vitest tests and a production build.", "<b>Imágenes:</b> construye las dos imágenes Docker con caché de GitHub para asegurar que el despliegue podrá hacerse.": "<b>Images:</b> builds both Docker images with GitHub's cache to make sure the deploy will work.", "<b>Eficiencia:</b> permisos de solo lectura, cancela ejecuciones obsoletas de la misma rama y no se ejecuta si solo cambian documentos.": "<b>Efficiency:</b> read-only permissions, cancels stale runs on the same branch and skips changes that only touch docs.", "<b>Por qué esas cuatro condiciones.</b> <code>workflow_run</code> se ejecuta con los secretos del repositorio incluso cuando el CI lo disparó una pull request de un fork, cuya rama puede llamarse <code>main</code>. Exigir <code>event == 'push'</code> y que el repositorio de origen sea este impide desplegar código ajeno.": "<b>Why those four conditions.</b> <code>workflow_run</code> runs with the repository's secrets even when CI was triggered by a pull request from a fork, whose branch may be called <code>main</code>. Requiring <code>event == 'push'</code> and this repository as the source prevents deploying someone else's code.", "Secretos y acceso": "Secrets and access", "Clave SSH exclusiva de despliegue y huella del servidor en el environment <code>production</code>; el token de GHCR caduca al acabar el job.": "A deploy-only SSH key and the server's fingerprint in the <code>production</code> environment; the GHCR token expires when the job ends.", "Vuelta atrás": "Rollback", "«Run workflow» con el SHA anterior: las imágenes están etiquetadas por commit.": "“Run workflow” with the previous SHA: images are tagged per commit.", "Repositorio protegido": "Protected repository", "Sin force-push ni borrado en <code>main</code>, escaneo de secretos con bloqueo en el push y aprobación obligatoria para workflows de externos.": "No force-push or deletion on <code>main</code>, secret scanning with push protection and required approval for outside contributors' workflows.", "Dependencias": "Dependencies", "Dependabot mensual y agrupado: como mucho una PR por ecosistema, siempre validada por el CI.": "Monthly, grouped Dependabot: at most one PR per ecosystem, always validated by CI.", "janguzman.com está en Namecheap; tres registros A apuntan al VPS y el proxy común decide qué sirve cada nombre.": "janguzman.com is registered at Namecheap; three A records point to the VPS and the shared proxy decides what each name serves.", "Nombre": "Name", "Registro DNS": "DNS record", "Qué sirve": "What it serves", "MyNews, con certificado de Let's Encrypt emitido y renovado por el edge.": "MyNews, with a Let's Encrypt certificate issued and renewed by the edge.", "Aún sin sitio en el proxy: pendiente de configurar.": "No site on the proxy yet: still to be set up.", "Igual que el dominio raíz.": "Same as the root domain.", "Páginas y rutas de news.janguzman.com": "Pages and routes on news.janguzman.com", "Ruta": "Route", "Qué es": "What it is", "Salud de la API y la base de datos (la usa el CD).": "Health of the API and the database (used by CD).", "Cronología con filtros <code>source</code>, <code>section</code>, <code>before</code> y <code>offset</code>.": "Timeline with <code>source</code>, <code>section</code>, <code>before</code> and <code>offset</code> filters.", "Árbol de comentarios de HN, <code>?lang=es</code> para traducirlo.": "HN comment tree, <code>?lang=es</code> to translate it.", "Volumen ingerido y uso de Gemini en las últimas 24 h.": "Ingested volume and Gemini usage over the last 24 h.", "Caddy en un VPS compartido": "Caddy on a shared VPS", "El servidor ya alojaba otros proyectos y uno de ellos tenía su propio Caddy ocupando los puertos 80 y 443. MyNews no podía levantar otro.": "The server already hosted other projects, and one of them had its own Caddy holding ports 80 and 443. MyNews could not start another one.", "Antes": "Before", "Después": "After", "Antes, el Caddy de un proyecto previo ocupaba los puertos públicos. Después, un proxy común con TLS reparte el tráfico por la red interna edge.": "Before, a previous project's Caddy held the public ports. After, a shared TLS proxy routes traffic over the internal edge network.", "Caddy de un proyecto previo": "A previous project's Caddy", "dueño de :80 y :443 y de sus certificados": "owns :80, :443 and their certificates", "sirve solo su propia web": "serves only its own site", "Proyecto previo": "Previous project", "su app": "its app", "✕ no puede usar :80/:443": "✕ cannot use :80/:443", "Edge · Caddy común": "Edge · shared Caddy", "único con :80 y :443": "only one on :80 and :443", "TLS de todos los dominios": "TLS for every domain", "certificados reutilizados": "certificates reused", "red Docker «edge» · solo HTTP interno": "“edge” Docker network · internal HTTP only", "Proyecto previo · alias interno": "Previous project · internal alias", "su Caddy ya sin puertos públicos; confía en el edge para la IP real": "its Caddy now without public ports; trusts the edge for the real IP", "Caddy en :80 → frontend + /api (sin puertos publicados)": "Caddy on :80 → frontend + /api (no published ports)", "<b>Proxy común:</b> un Caddy nuevo en su propia carpeta, dueño de los puertos públicos y de HTTPS para todos los dominios.": "<b>Shared proxy:</b> a new Caddy in its own folder, owning the public ports and HTTPS for every domain.", "<b>Certificados:</b> se copiaron los existentes al volumen del edge, así que no hubo que volver a emitirlos.": "<b>Certificates:</b> the existing ones were copied to the edge's volume, so nothing had to be reissued.", "<b>Proyecto previo:</b> su Caddy pasó a HTTP interno, con las mismas cabeceras de seguridad y rutas, y con <code>trusted_proxies</code> para seguir viendo la IP real del visitante. Se comprobó que una IP falsificada se ignora.": "<b>Previous project:</b> its Caddy moved to internal HTTP with the same security headers and routes, plus <code>trusted_proxies</code> so it still sees the visitor's real IP. A spoofed IP was verified to be ignored.", "<b>Corte:</b> unos 3 segundos sin servicio, con vuelta atrás automática preparada si la web no respondía.": "<b>Cutover:</b> about 3 seconds of downtime, with an automatic rollback ready had the site not responded.", "<b>MyNews:</b> se une a la red <code>edge</code> con el alias <code>mynews-web</code>; añadir otro proyecto es un bloque más en el Caddyfile del edge.": "<b>MyNews:</b> joins the <code>edge</code> network as <code>mynews-web</code>; adding another project is one more block in the edge's Caddyfile.", "MyNews · documento interno de arquitectura": "MyNews · internal architecture document", "enriquecer · puntuar · chat": "enrich · score · chat", "enriquecer y puntuar": "enrich and score", "traducción · chat (SSE)": "translation · chat (SSE)", "sesión con consentimiento": "session with consent", "React + TypeScript. Bilingüe, modo claro y oscuro, actualización cada minuto, animaciones con Motion y estado del lector (leídas, votos, consentimiento) en <code>localStorage</code>. Un panel flotante muestra los comentarios de HN o el chat de una noticia.": "React + TypeScript. Bilingual, light and dark themes, refreshed every minute, Motion animations and reader state (read stories, votes, consent) in <code>localStorage</code>. One floating panel shows a story's HN comments or its chat.", "Preguntar": "Ask", "Un chat sobre cada noticia. Gemini responde en streaming a partir de la noticia (titular, descripción, inicio del artículo y comentarios de HN) y avisa cuando añade contexto general. Nada se guarda en el servidor.": "A chat about each story. Gemini streams its answer from the story (headline, description, opening of the article and HN comments) and says when it adds general context. Nothing is stored on the server.", "Consentimiento": "Consent", "Sin aceptar no hay cookie: clics e impresiones se cuentan de forma anónima y los votos se quedan en el navegador. Al aceptar se crea una sesión anónima; retirarlo borra todo lo asociado y el historial caduca al año.": "Without consent there is no cookie: clicks and impressions are counted anonymously and votes stay in the browser. Agreeing creates an anonymous session; withdrawing deletes everything linked to it, and history expires after a year.", "Una vez por artículo y en lotes: titular traducido, descripción EN/ES, temas e importancia de 1 a 100 según una rúbrica pensada para un líder tecnológico.": "Once per article, in batches: translated headline, EN/ES description, topics and an importance from 1 to 100 with a rubric written for a technology leader.", "Importancia más cobertura (otros medios) y puntos de HN, reducida a la mitad cada 18 h, con equilibrio de fuentes.": "Importance plus coverage (other outlets) and HN points, halved every 18 h, with source balance.", "Impresiones, clics, votos, leídas y preguntas. Con consentimiento se ligan a una sesión anónima en la tabla <code>events</code>; sin él, son recuentos anónimos y los votos se quedan en <code>localStorage</code>.": "Impressions, clicks, votes, read stories and questions. With consent they are linked to an anonymous session in the <code>events</code> table; without it they are anonymous counts and votes stay in <code>localStorage</code>.", "Base de datos sin exponer, secretos fuera del repo, despliegue solo desde <code>main</code>, sesión con cookie HttpOnly y hash del token, límites por visitante en el chat.": "Database not exposed, secrets outside the repo, deploys only from <code>main</code>, HttpOnly session cookie with a hashed token, per-visitor limits on the chat.", "Importancia y frescura": "Importance and freshness", "Chat en streaming": "Streaming chat", "Gemini puntúa con una rúbrica para un líder tecnológico (tecnología, seguridad y geopolítica que mueve mercados) y anclas de 1 a 100. Si cambia la rúbrica se sube <code>SCORE_VERSION</code> y el worker vuelve a puntuar las últimas 48 h.": "Gemini scores with a rubric written for a technology leader (technology, security and market-moving geopolitics) and anchors from 1 to 100. When the rubric changes, <code>SCORE_VERSION</code> is bumped and the worker re-scores the last 48 h.", "Lite empieza a responder en menos de un segundo. El servidor no guarda conversaciones y limita a 20 preguntas por hora por visitante y 400 al día en total, con la IP real que le pasa Caddy.": "Lite starts answering in under a second. The server stores no conversations and allows 20 questions per visitor per hour and 400 a day in total, using the real IP that Caddy passes on.", "Las cinco noticias más importantes del último día (importancia, cobertura y frescura).": "The five most important stories of the last day (importance, coverage and freshness).", "Chat «Preguntar»: respuesta en streaming (SSE) sobre una noticia.": "The “Ask” chat: a streamed (SSE) answer about one story.", "Sesión anónima solo con consentimiento (<code>DELETE /session</code> la borra con todos sus datos), eventos y votos.": "Anonymous session only with consent (<code>DELETE /session</code> erases it with all its data), events and votes.", "<b>11</b> migraciones de base de datos": "<b>11</b> database migrations", "<b>74 + 28</b> tests (backend + frontend)": "<b>74 + 28</b> tests (backend + frontend)", "Huellas": "Fingerprints", "Lite · Flash · Embedding": "Lite · Flash · Embedding", "comentarios y análisis HN": "HN comments and analysis", "brief · huellas": "brief · fingerprints", "feeds · búsqueda": "feeds · search", "brief · análisis · métricas": "brief · analysis · metrics", "Cada 5 minutos descarga las tres fuentes en paralelo, deduplica, lee el artículo original para darle contexto a Gemini, enriquece lo nuevo (titular traducido, descripción, temas e importancia de 1 a 100), calcula la huella de cada noticia, analiza los hilos de HN con debate y rehace el brief del día si toca. Una vez al día borra el historial ligado a un lector con más de un año.": "Every 5 minutes it fetches the three sources in parallel, deduplicates, reads the original article to give Gemini context, enriches what is new (translated headline, description, topics and an importance from 1 to 100), computes each story's fingerprint, analyses the HN threads with a real debate and rewrites the daily brief when due. Once a day it deletes reader-linked history older than a year.", "FastAPI asíncrona. Sirve los feeds, la búsqueda por significado, el árbol de comentarios de HN (descargado y traducido bajo demanda) con su análisis, el brief, las métricas y el chat sobre cada noticia en streaming. Registra votos y eventos en una sesión anónima solo si el lector lo acepta.": "Async FastAPI. It serves the feeds, search by meaning, the HN comment tree (fetched and translated on demand) with its analysis, the brief, the metrics and the streaming chat about each story. It records votes and events in an anonymous session only if the reader agrees.", "Huellas de cada noticia": "Each story's fingerprint", "Cada noticia tiene una huella de su significado: una lista de 768 números que calcula un modelo de embeddings. Dos textos que hablan de lo mismo tienen huellas parecidas aunque no compartan palabras ni idioma. Con ellas funciona la búsqueda, y serán la base de «Para ti».": "Every story has a fingerprint of its meaning: a list of 768 numbers computed by an embedding model. Two texts about the same thing get similar fingerprints even if they share no words or language. Search runs on them, and they will be the basis of For You.", "Cómo se crea y se usa una huella": "How a fingerprint is made and used", "El texto de la noticia pasa por el modelo de embeddings de Gemini, que devuelve 768 números que se guardan en PostgreSQL con pgvector. Una búsqueda se convierte en huella con el mismo modelo y pgvector devuelve las noticias con la huella más parecida.": "The story's text goes through Gemini's embedding model, which returns 768 numbers stored in PostgreSQL with pgvector. A search is turned into a fingerprint with the same model and pgvector returns the stories with the most similar fingerprint.", "Texto de la noticia": "Story text", "titular + descripción + temas": "headline + description + topics", "en inglés · una vez por noticia": "in English · once per story", "3.072 → 768 dimensiones": "3,072 → 768 dimensions", "Huella": "Fingerprint", "768 números": "768 numbers", "tabla embeddings": "embeddings table", "índice HNSW (coseno)": "HNSW index (cosine)", "Búsqueda «elecciones»": "Search “elecciones”", "misma huella, mismo modelo": "same fingerprint, same model", "Huellas más parecidas": "Most similar fingerprints", "0,70 · Brasil irá a segunda vuelta": "0.70 · Brazil heads to a runoff", "Resultados": "Results", "mejor ≥ 0,645 · cada uno ≥ 0,60": "best ≥ 0.645 · each ≥ 0.60", "a ≤ 0,08 del mejor · + frescura": "within 0.08 of the best · + freshness", "<b>Texto:</b> el titular, la descripción que escribió Gemini (o el extracto de la fuente) y los temas, en inglés. Es lo mismo para todas las fuentes, también para Reuters, de la que solo hay titular.": "<b>Text:</b> the headline, the description Gemini wrote (or the source's excerpt) and the topics, in English. It is the same for every source, including Reuters, which only gives a headline.", "<b>Modelo:</b> <code>gemini-embedding-2</code> devuelve 3.072 números y se le pide reducirlos a 768 (<code>outputDimensionality</code>): ocupan cuatro veces menos y caben en el índice HNSW de pgvector. Es multilingüe, así que una consulta en español encuentra noticias en inglés.": "<b>Model:</b> <code>gemini-embedding-2</code> returns 3,072 numbers and is asked to reduce them to 768 (<code>outputDimensionality</code>): four times smaller, and they fit pgvector's HNSW index. It is multilingual, so a Spanish query finds English stories.", "<b>Cuándo:</b> el worker la calcula después del enriquecimiento, una sola vez por noticia, en tandas de 50 y como mucho 100 por pasada. El plan gratuito limita los textos por minuto, y cada 5 minutos sobra para las ~300 noticias de un día.": "<b>When:</b> the worker computes it after enrichment, once per story, in batches of 50 and at most 100 per pass. The free tier limits texts per minute, and every 5 minutes is plenty for a day's ~300 stories.", "<b>Dónde:</b> en la tabla <code>embeddings</code> (columna <code>vector(768)</code>) con un índice HNSW por distancia coseno, que encuentra las más parecidas sin recorrer todas.": "<b>Where:</b> in the <code>embeddings</code> table (a <code>vector(768)</code> column) with an HNSW index on cosine distance, which finds the closest ones without scanning them all.", "<b>Búsqueda:</b> la consulta se convierte en huella con el mismo modelo (y se guarda en memoria para no repetirla), pgvector devuelve las 60 más cercanas y se quedan las que de verdad tratan del tema, con un pequeño extra para las recientes.": "<b>Search:</b> the query is turned into a fingerprint with the same model (and kept in memory so it is not repeated), pgvector returns the 60 closest and only those really about the topic are kept, with a small bonus for recent ones.", "Los umbrales se calibraron con consultas reales sobre unas 330 noticias:": "The thresholds were calibrated with real queries over about 330 stories:", "Consulta": "Query", "Mejor similitud": "Best similarity", "Qué devuelve": "What it returns", "Brasil, España, EE. UU.: elecciones en cualquier idioma": "Brazil, Spain, the US: elections in any language", "AMD, Nvidia, TSMC, Qualcomm": "AMD, Nvidia, TSMC, Qualcomm", "una sola noticia, la de Rust": "a single story, the Rust one", "nada: ninguna noticia trata de eso": "nothing: no story is about it", "0,68": "0.68", "0,67": "0.67", "0,78": "0.78", "0,63 · 0,59": "0.63 · 0.59", "[0,021, −0,113, 0,047, …]": "[0.021, −0.113, 0.047, …]", "«Brazil heads to a runoff…»": "“Brazil heads to a runoff…”", "xyzzy qwerty · fútbol": "xyzzy qwerty · fútbol (football)", "Un único brief del día con un solo prompt: las 7 noticias más importantes de mundo y las 7 de tecnología, en 5 o 6 frases (viñetas en el móvil). El agente con herramientas se ha descartado.": "A single daily brief from one prompt: the 7 most important world stories and the 7 tech ones, in 5 or 6 sentences (bullet points on phones). The tool-using agent was dropped.", "Una huella de 768 números por noticia con <code>gemini-embedding-2</code>, en pgvector con índice HNSW; búsqueda por significado entre idiomas con umbrales calibrados.": "A 768-number fingerprint per story with <code>gemini-embedding-2</code>, in pgvector with an HNSW index; search by meaning across languages with calibrated thresholds.", "Análisis de hilos HN": "HN thread analysis", "En hilos de 30 comentarios o más: tono, puntos de debate con cada postura, aportaciones y enlaces compartidos (solo URLs que aparecen en el hilo). Se rehace cuando el hilo crece un 50 %.": "In threads with 30 comments or more: tone, points of debate with each side, contributions and shared links (only URLs that appear in the thread). Rewritten when the thread grows by half.", "Los votos ya se guardan en cada navegador; falta analizarlos para crear contenido segmentado por los gustos de cada lector.": "Votes are already kept in each browser; analysing them to build content segmented by each reader's tastes is still to do.", "Evals": "Evals", "Set etiquetado a mano y métricas de ranking en el CI: fuera de la 1.0.": "A hand-labelled set and ranking metrics in CI: outside 1.0.", "MCP, agente del briefing, A/B": "MCP, briefing agent, A/B", "Descartados: con un solo lector y un proyecto de este tamaño no aportan lo que cuestan.": "Dropped: with a single reader and a project of this size they are not worth what they cost.", "<span class=\"chip off\">descartado</span>": "<span class=\"chip off\">dropped</span>", "Huellas y búsqueda": "Fingerprints and search", "Análisis de hilos": "Thread analysis", "El índice HNSW resuelve el <code>ORDER BY distance LIMIT 60</code> sin recorrer la tabla. Por debajo de 0,645 de similitud en el mejor resultado no se devuelve nada: así una consulta sin sentido no muestra noticias al azar.": "The HNSW index answers the <code>ORDER BY distance LIMIT 60</code> without scanning the table. When even the best result is below 0.645 similarity nothing is returned, so a meaningless query does not show random stories.", "Entran los comentarios principales y dos niveles de respuestas, en orden de lectura y hasta unos 24.000 caracteres. El análisis se muestra encima del hilo en el panel de comentarios.": "It takes the top comments and two levels of replies, in reading order, up to about 24,000 characters. The analysis is shown above the thread in the comments panel.", "El brief del día con sus viñetas.": "The daily brief with its bullet points.", "Búsqueda por significado, en cualquier idioma.": "Search by meaning, in any language.", "Lo que dice la comunidad en un hilo de HN.": "What the community says in an HN thread.", "La web: portada con el brief, «Lo importante hoy», «Última hora» con buscador, panel de comentarios (con su análisis) y chat, diálogos de fuentes y de privacidad.": "The site: masthead with the brief, Today's essentials, Latest with search, the comments panel (with its analysis) and chat, and the sources and privacy dialogs.", "Contenido según los gustos de cada lector": "Content tailored to each reader's tastes", "Analizar los datos de cada lector (sus votos y, con consentimiento, lo que abre y pregunta) para crear contenido segmentado por sus gustos: una portada «Para ti», que se pueda activar y desactivar, ordenada por la afinidad con las huellas de lo que le gustó junto con la importancia y la frescura, con variedad, algo de exploración y un motivo en cada noticia. Los votos irían desde el navegador en cada petición, sin guardar un perfil en el servidor.": "Analyse each reader's data (their votes and, with consent, what they open and ask) to build content segmented by their tastes: a For You front page that can be switched on and off, ordered by affinity with the fingerprints of what they liked together with importance and freshness, with variety, some exploration and a reason on every story. Votes would travel from the browser with each request, with no profile stored on the server.", "0,55 · TSMC produce más chips": "0.55 · TSMC makes more chips"};
+  const EN_ATTRS = {"Secciones": "Sections", "Fragmentos de código": "Code snippets", "Estado del servidor": "Server state", "Idioma": "Language"};
+  const translatable = [...document.querySelectorAll("p, li, td, th, h1, h2, h3, h4, nav.toc a, button, span, .legend span, .callout, svg text, svg title, svg desc, footer.end")]
+    .filter((el) => el.closest(".lang-switch") === null && !el.closest("pre"));
+  translatable.forEach((el) => {
+    const key = el instanceof SVGElement ? el.textContent : el.innerHTML;
+    if (EN[key] !== undefined) { el.dataset.es = key; el.dataset.en = EN[key]; }
+  });
+  const labelled = [...document.querySelectorAll("[aria-label]")].filter((el) => EN_ATTRS[el.getAttribute("aria-label")]);
+  labelled.forEach((el) => { el.dataset.esLabel = el.getAttribute("aria-label"); });
+  function setLang(lang) {
+    document.documentElement.lang = lang;
+    document.title = lang === "en" ? "MyNews · Architecture and CI/CD" : "MyNews · Arquitectura y CI/CD";
+    translatable.forEach((el) => {
+      if (!el.dataset.es) return;
+      const value = lang === "en" ? el.dataset.en : el.dataset.es;
+      if (el instanceof SVGElement) el.textContent = value; else el.innerHTML = value;
+    });
+    labelled.forEach((el) => el.setAttribute("aria-label", lang === "en" ? EN_ATTRS[el.dataset.esLabel] : el.dataset.esLabel));
+    document.querySelectorAll(".lang-switch button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.lang === lang));
+    try { localStorage.setItem("mynews-docs-lang", lang); } catch {}
+  }
+  let initial = (navigator.language || "").toLowerCase().startsWith("es") ? "es" : "en";
+  try { initial = localStorage.getItem("mynews-docs-lang") || localStorage.getItem("mynews.lang") || initial; } catch {}
+  document.querySelectorAll(".lang-switch button").forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
+  setLang(initial);
+
+  // Syntax highlighting (Caddyfile has no grammar: shown as plain text).
+  document.querySelectorAll("pre code").forEach((el) => {
+    if (el.classList.contains("language-caddyfile")) el.classList.add("hljs");
+    else window.hljs && hljs.highlightElement(el);
+  });
+
+  // Tabs for the code samples.
+  document.querySelectorAll("[data-tabs]").forEach((tabs) => {
+    const buttons = [...tabs.querySelectorAll('[role="tab"]')];
+    buttons.forEach((btn) => btn.addEventListener("click", () => {
+      buttons.forEach((b) => {
+        const on = b === btn;
+        b.setAttribute("aria-selected", on);
+        document.getElementById(b.getAttribute("aria-controls")).hidden = !on;
+      });
+      const panel = document.getElementById(btn.getAttribute("aria-controls"));
+      if (window.anime && !reduce) anime.animate(panel, { opacity: [0, 1], translateY: [6, 0], duration: 320, ease: "outQuad" });
+    }));
+  });
+
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const A = window.anime;
+
+  // Runs a setup once, the first time an element scrolls into view.
+  function whenVisible(el, run) {
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) { io.disconnect(); run(); }
+    }, { threshold: 0.25 });
+    io.observe(el);
+  }
+
+  if (A && !reduce) {
+    const { animate, createTimeline, stagger, svg } = A;
+
+    // ── Architecture: zones fade in, nodes pop in, edges draw, then data flows. ──
+    const arch = document.getElementById("arch");
+    arch.querySelectorAll("[data-anim], .elabel, .packet").forEach((el) => (el.style.opacity = 0));
+    whenVisible(arch, () => {
+      const tl = createTimeline({ defaults: { ease: "outExpo" } });
+      tl.add(arch.querySelectorAll('[data-anim="zone"]'), { opacity: [0, 1], duration: 600, delay: stagger(120) })
+        .add(arch.querySelectorAll('[data-anim="node"]'), { opacity: [0, 1], duration: 500, delay: stagger(70) }, "-=300")
+        .add(arch.querySelectorAll('[data-anim="node"] .inner'), { scale: [0.85, 1], duration: 700, delay: stagger(70) }, "<<")
+        .add(svg.createDrawable(arch.querySelectorAll(".edge")), { draw: ["0 0", "0 1"], duration: 900, delay: stagger(60), ease: "inOutQuad" }, "-=500")
+        .add(arch.querySelectorAll(".elabel"), { opacity: [0, 1], duration: 500, delay: stagger(40) }, "-=300")
+        .call(() => {
+          arch.querySelectorAll(".packet").forEach((dot, i) => {
+            dot.style.opacity = 1;
+            animate(dot, {
+              ...svg.createMotionPath(dot.dataset.path),
+              duration: dot.classList.contains("ai") ? 3200 : 1900,
+              delay: (i % 5) * 380,
+              loop: true,
+              ease: "inOutSine",
+            });
+          });
+        });
+    });
+
+    // ── Pipeline: edges draw, stages light up in order, on a loop. ──
+    const pipe = document.getElementById("pipeline");
+    whenVisible(pipe, () => {
+      animate(svg.createDrawable(pipe.querySelectorAll(".edge")), { draw: ["0 0", "0 1"], duration: 900, delay: stagger(80), ease: "inOutQuad" });
+      const stages = [...pipe.querySelectorAll(".stage")];
+      animate(stages, { opacity: [0, 1], duration: 500, delay: stagger(90), ease: "outQuad" });
+      animate(stages.map((s) => s.querySelector(".inner")), { translateY: [8, 0], duration: 600, delay: stagger(90), ease: "outExpo" });
+      const steps = [0, 1, 2, 3, 4];
+      let i = 0;
+      const tick = () => {
+        stages.forEach((s) => s.classList.toggle("on", Number(s.dataset.step) <= steps[i]));
+        const lit = stages.filter((s) => Number(s.dataset.step) === steps[i]);
+        animate(lit.map((s) => s.querySelector("rect")), { scale: [1, 1.04, 1], duration: 500, ease: "outQuad" });
+        i = (i + 1) % (steps.length + 1);
+        if (i === 0) stages.forEach((s) => s.classList.remove("on"));
+      };
+      setTimeout(() => { tick(); setInterval(tick, 900); }, 1100);
+    });
+  }
+
+  // ── VPS before/after toggle. ──
+  const before = document.getElementById("before");
+  const after = document.getElementById("after");
+  document.querySelectorAll(".toggle button").forEach((btn) => btn.addEventListener("click", () => {
+    document.querySelectorAll(".toggle button").forEach((b) => b.setAttribute("aria-pressed", b === btn));
+    const show = btn.dataset.state === "before" ? before : after;
+    const hide = show === before ? after : before;
+    if (A && !reduce) {
+      A.animate(hide, { opacity: 0, duration: 250, ease: "outQuad" });
+      A.animate(show, { opacity: [0, 1], duration: 450, delay: 150, ease: "outExpo" });
+      A.animate(show.querySelectorAll(".node .inner"), { opacity: [0, 1], translateY: [10, 0], duration: 550, delay: A.stagger(80, { start: 200 }), ease: "outExpo" });
+    } else {
+      hide.setAttribute("opacity", 0); show.setAttribute("opacity", 1);
+    }
+  }));
+</script>
+</body>
+</html>
