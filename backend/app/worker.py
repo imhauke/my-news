@@ -9,6 +9,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from app.config import get_settings
 from app.enrich import jobs as enrich
 from app.enrich.digest import refresh_digest
+from app.enrich.embeddings import embed_articles
+from app.enrich.threads import analyse_threads
 from app.ingest import jobs
 from app.logging import configure_logging
 from app.privacy import purge_job
@@ -21,6 +23,7 @@ async def enrich_pipeline() -> None:
     await enrich.fetch_page_meta()
     await enrich.enrich_articles()
     await enrich.rescore_recent()
+    await embed_articles()
 
 
 async def refresh() -> None:
@@ -36,6 +39,12 @@ async def refresh() -> None:
     await refresh_digest()
 
 
+async def hn_threads() -> None:
+    """Live threads are re-fetched on their schedule; then the ones that grew get a new analysis."""
+    await jobs.refresh_hn_comments()
+    await analyse_threads()
+
+
 async def main() -> None:
     cfg = get_settings()
     configure_logging(cfg.log_level)
@@ -49,7 +58,7 @@ async def main() -> None:
     every = {"trigger": "interval", "minutes": cfg.refresh_minutes, "max_instances": 1, "coalesce": True,
              "next_run_time": datetime.now()}  # first run right away
     scheduler.add_job(refresh, id="refresh", **every)
-    scheduler.add_job(jobs.refresh_hn_comments, id="hn_comments", **every)
+    scheduler.add_job(hn_threads, id="hn_comments", **every)
     scheduler.add_job(purge_job, "interval", id="privacy_purge", hours=24, next_run_time=datetime.now())
     scheduler.start()
     log.info("worker_started", refresh_minutes=cfg.refresh_minutes)

@@ -5,22 +5,23 @@ from typing import Annotated
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import StreamingResponse
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import chat as story_chat
 from app import ranking
+from app import search as semantic
 from app.ai.base import AIClient
-from app.api.comments_tree import build_tree
+from app.api.comments_tree import COMMENTS_SQL, build_tree
 from app.api.session import ensure_session, forget, optional_user, required_user
 from app.config import get_settings
 from app.db import get_session
-from app.enrich.digest import KINDS as DIGEST_KINDS
+from app.enrich.digest import KIND as DIGEST_KIND
 from app.enrich.translate import translate_comments
 from app.ingest.fetch import make_client
 from app.ingest.jobs import fetch_story_comments
-from app.models import AIUsage, Article, ArticleFeedback, Digest, Event, User
-from app.schemas import ArticleOut, ChatIn, CommentNode, DigestOut, EventBatch, FeedbackIn
+from app.models import AIUsage, Article, ArticleFeedback, Digest, Event, ThreadInsight, User
+from app.schemas import ArticleOut, ChatIn, CommentNode, DigestOut, EventBatch, FeedbackIn, ThreadInsightOut
 
 log = structlog.get_logger()
 router = APIRouter()
@@ -28,18 +29,6 @@ Session = Annotated[AsyncSession, Depends(get_session)]
 MaybeUser = Annotated[User | None, Depends(optional_user)]
 Lang = Annotated[str, Query(pattern="^(es|en)$")]
 TRANSLATE_BUDGET = 120  # max comments translated per request
-
-COMMENTS_SQL = text("""
-    WITH RECURSIVE tree AS (
-        SELECT id, author, text, text_es, created_at, depth, ARRAY[sibling_rank] AS path
-        FROM hn_comments WHERE story_id = :story AND parent_id = :story AND NOT deleted
-        UNION ALL
-        SELECT c.id, c.author, c.text, c.text_es, c.created_at, c.depth, t.path || c.sibling_rank
-        FROM hn_comments c JOIN tree t ON c.parent_id = t.id WHERE NOT c.deleted
-    )
-    SELECT id, author, text, text_es, created_at, depth FROM tree ORDER BY path
-""")
-
 
 COMMENTS_REFRESH = timedelta(minutes=5)
 THREAD_LIVE = timedelta(hours=48)
@@ -134,15 +123,12 @@ async def important(
     return await _out(session, user, picked)
 
 
-@router.get("/digest", response_model=dict[str, DigestOut | None])
-async def digest(session: Session) -> dict[str, Digest | None]:
-    """Latest overview of each kind (general, world, tech); null where none exists yet."""
-    return {
-        kind: await session.scalar(
-            select(Digest).where(Digest.kind == kind).order_by(Digest.created_at.desc()).limit(1)
-        )
-        for kind in DIGEST_KINDS
-    }
+@router.get("/digest", response_model=DigestOut | None)
+async def digest(session: Session) -> Digest | None:
+    """The latest brief of the day, or null before the first one is written."""
+    return await session.scalar(
+        select(Digest).where(Digest.kind == DIGEST_KIND).order_by(Digest.created_at.desc()).limit(1)
+    )
 
 
 @router.get("/articles/{article_id}", response_model=ArticleOut)
@@ -214,6 +200,37 @@ def client_ip(request: Request) -> str:
     """The visitor's address: set by the site's Caddy from the trusted edge proxy (X-Real-IP), or
     the direct peer when running without proxies."""
     return request.headers.get("x-real-ip") or (request.client.host if request.client else "unknown")
+
+
+@router.get("/articles/{article_id}/insight", response_model=ThreadInsightOut | None)
+async def thread_insight(article_id: int, session: Session) -> ThreadInsightOut | None:
+    """What the Hacker News community says about the story; null until the thread is analysed."""
+    a = await session.get(Article, article_id)
+    if not a or a.source != "hn":
+        raise HTTPException(404, "not a Hacker News story")
+    i = await session.get(ThreadInsight, int(a.external_id))
+    if i is None:
+        return None
+    return ThreadInsightOut(
+        tone=i.tone, summary_en=i.summary, summary_es=i.summary_es, points=i.key_points or [],
+        contributions=i.notable_comments or [], resources=i.resources or [],
+        comments_covered=i.comments_covered, created_at=i.created_at,
+    )
+
+
+@router.get("/search", response_model=list[ArticleOut])
+async def search_stories(
+    session: Session, user: MaybeUser, request: Request, ai: Annotated[AIClient | None, Depends(chat_ai)],
+    q: Annotated[str, Query(min_length=2, max_length=200)], limit: Annotated[int, Query(ge=1, le=40)] = 20,
+) -> list[ArticleOut]:
+    """Stories about what the query means, in any language (see app.search)."""
+    if ai is None:
+        raise HTTPException(503, "unavailable")
+    try:
+        semantic.guard().check(client_ip(request))
+    except story_chat.ChatLimited as exc:
+        raise HTTPException(429, exc.code) from exc
+    return await _out(session, user, await semantic.search(session, ai, q.strip(), limit))
 
 
 @router.post("/articles/{article_id}/chat")

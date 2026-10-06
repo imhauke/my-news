@@ -158,7 +158,9 @@ class ThreadInsight(Base):
     __tablename__ = "thread_insights"
 
     story_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    summary: Mapped[str | None] = mapped_column(Text)
+    tone: Mapped[str | None] = mapped_column(String(16))  # positive | skeptical | divided | mixed
+    summary: Mapped[str | None] = mapped_column(Text)  # English
+    summary_es: Mapped[str | None] = mapped_column(Text)
     key_points: Mapped[list | None] = mapped_column(JSONB)
     disagreements: Mapped[list | None] = mapped_column(JSONB)
     notable_comments: Mapped[list | None] = mapped_column(JSONB)

@@ -82,3 +82,16 @@ class ChatIn(BaseModel):
 
     messages: list[ChatMessage] = Field(min_length=1, max_length=24)
     lang: Literal["es", "en"] = "es"
+
+
+class ThreadInsightOut(BaseModel):
+    """What the Hacker News community says about a story (see app.enrich.threads)."""
+
+    tone: str | None
+    summary_en: str | None
+    summary_es: str | None
+    points: list[dict]
+    contributions: list[dict]
+    resources: list[dict]
+    comments_covered: int
+    created_at: datetime

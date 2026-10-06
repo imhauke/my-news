@@ -36,10 +36,9 @@ export interface CommentNode {
   children: CommentNode[];
 }
 
-export type DigestKind = "general" | "world" | "tech";
-
+/** The brief at the top of the front page. */
 export interface Digest {
-  kind: DigestKind;
+  kind: string;
   text_en: string;
   text_es: string;
   bullets_en?: string[];
@@ -48,10 +47,22 @@ export interface Digest {
   created_at: string;
 }
 
-export type Digests = Partial<Record<DigestKind, Digest | null>>;
-
 export interface Metrics {
   articles_total: number;
   articles_enriched: number;
   last_ingest_at: string | null;
+}
+
+export type ThreadTone = "positive" | "skeptical" | "divided" | "mixed";
+
+/** What the Hacker News community says about a story, written by the worker. */
+export interface ThreadInsight {
+  tone: ThreadTone | null;
+  summary_en: string | null;
+  summary_es: string | null;
+  points: { title_en: string; title_es: string; text_en: string; text_es: string }[];
+  contributions: { author: string; text_en: string; text_es: string }[];
+  resources: { title: string; url: string }[];
+  comments_covered: number;
+  created_at: string;
 }

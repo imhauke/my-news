@@ -6,7 +6,8 @@ An AI-powered news feed. It aggregates Reuters (World, Technology), Ars Technica
 
 - **Ingestion**: concurrent, idempotent fetching with retries and backoff; deduplication by normalised URL and headline similarity. Hacker News follows [`/front`](https://news.ycombinator.com/front), the list of stories that made the front page each day, in the same order.
 - **AI enrichment** (Gemini Flash-Lite, batched, once per article): translated headline, a short description in English and Spanish, topics and a global relevance score. Descriptions are written from the original article text and skipped when there is nothing beyond the headline.
-- **Hacker News discussions**: full comment trees fetched on demand, stored as rows and rebuilt with a recursive SQL query; translated to Spanish on request.
+- **Hacker News discussions**: full comment trees fetched on demand, stored as rows and rebuilt with a recursive SQL query; translated to Spanish on request. Threads with a real debate get an analysis above the comments: overall tone, main points with what each side argues, notable contributions and links commenters shared (only URLs that appear in the thread).
+- **Semantic search**: every story gets an embedding (Gemini, 768 dimensions, pgvector HNSW index), so a query finds stories by meaning, across languages: "elecciones" finds an English story about a runoff vote.
 - **Ask about a story**: a chat in the side panel answers questions about any story, streamed from Gemini and grounded in the headline, the description, the opening of the original article (read on demand, never stored) and, on Hacker News, the top comments. Per-visitor and daily limits protect the free quota.
 - **Reader state without accounts**: read stories and thumbs up/down are kept in each browser's localStorage. Readers who opt in to personalisation get an anonymous session, and their ratings and reading events reach the API as the training signal for the upcoming For You feed; everyone else is counted anonymously. Withdrawing consent deletes the session's data, and linked history expires after a year.
 - **Web app**: editorial layout with black-and-white source photos, English/Spanish interface, light and dark themes, source and section filters, live updates and Motion animations.
@@ -81,10 +82,10 @@ All settings come from environment variables; see [.env.example](.env.example). 
 - [x] Gemini enrichment and translation
 - [x] Ratings from readers, with consent
 - [x] Ask about a story (streaming chat)
-- [ ] Embeddings and semantic search
-- [ ] For You feed: interest profile, candidate scoring and re-ranking
-- [ ] Ranking evals and A/B experiments
-- [ ] Daily briefing agent and MCP server
+- [x] One daily brief across world affairs and technology
+- [x] Hacker News thread analysis
+- [x] Semantic search
+- [ ] Personal ranking blended into the front page (For You)
 
 ## License
 

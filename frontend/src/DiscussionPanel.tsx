@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Comments } from "./Comments";
 import { StoryChat, focusesInputOnOpen } from "./StoryChat";
+import { ThreadInsightCard } from "./ThreadInsight";
 import { useDiscussion } from "./discussion";
 import { headline } from "./format";
 import { useLang, useT } from "./i18n";
@@ -153,7 +154,12 @@ export function DiscussionPanel() {
                           animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.14 }}>
                 {chat || active.hn_story_id == null
                   ? <StoryChat article={active} />
-                  : <Comments articleId={active.id} storyId={active.hn_story_id} />}
+                  : (
+                    <>
+                      <ThreadInsightCard articleId={active.id} />
+                      <Comments articleId={active.id} storyId={active.hn_story_id} />
+                    </>
+                  )}
               </motion.div>
             </AnimatePresence>
           </div>

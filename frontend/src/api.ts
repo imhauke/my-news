@@ -1,4 +1,4 @@
-import type { Article, CommentNode, Digests, Feedback, Lang, Metrics, Source } from "./types";
+import type { Article, CommentNode, Digest, ThreadInsight, Feedback, Lang, Metrics, Source } from "./types";
 
 const BASE = import.meta.env.VITE_API_BASE ?? "/api";
 export const PAGE_SIZE = 30;
@@ -27,7 +27,7 @@ export const fetchLatest = ({ source, section, before, offset }: LatestQuery = {
 
 export const fetchImportant = () => request<Article[]>("/feed/important?limit=5");
 export const fetchMetrics = () => request<Metrics>("/metrics");
-export const fetchDigests = () => request<Digests>("/digest");
+export const fetchDigest = () => request<Digest | null>("/digest");
 export const fetchComments = (articleId: number, lang: Lang) =>
   request<CommentNode[]>(`/articles/${articleId}/comments?lang=${lang}`);
 
@@ -59,6 +59,24 @@ export function cachedComments(articleId: number, lang: Lang): CommentNode[] | n
 export function prefetchComments(articleId: number) {
   loadComments(articleId, "en").catch(() => undefined);
 }
+
+/** The community's take on a thread (null until analysed), cached briefly like the comments. */
+const insightCache = new Map<number, { at: number; promise: Promise<ThreadInsight | null> }>();
+
+export function loadInsight(articleId: number): Promise<ThreadInsight | null> {
+  const hit = insightCache.get(articleId);
+  if (hit && Date.now() - hit.at < COMMENTS_TTL_MS) return hit.promise;
+  const promise = request<ThreadInsight | null>(`/articles/${articleId}/insight`).then((i) =>
+    i && typeof i === "object" && Array.isArray(i.points) ? i : null, // anything unexpected shows nothing
+  );
+  promise.catch(() => insightCache.delete(articleId));
+  insightCache.set(articleId, { at: Date.now(), promise });
+  return promise;
+}
+
+/** Stories about what the query means, in any language. */
+export const searchStories = (query: string, signal?: AbortSignal) =>
+  request<Article[]>(`/search?${new URLSearchParams({ q: query })}`, { signal });
 
 /** Creates (or, with an existing cookie, returns) this browser's anonymous user. */
 export const ensureSession = () => request<{ user_id: number }>("/session", { method: "POST" });

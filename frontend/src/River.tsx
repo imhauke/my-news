@@ -5,6 +5,7 @@ import { SOURCE_LABEL, SOURCE_SECTIONS, clockTime, description, groupByDay, grou
 import { Headline } from "./Headline";
 import { EASE_OUT, LOAD_SEQUENCE_MS, MAX_STAGGER_STEPS, REVEAL_S, STAGGER_S, entrance, scrollReveal, scrollSpeed } from "./motion";
 import { Photo } from "./Photo";
+import { SearchBox } from "./SearchBox";
 import { SegmentedControl } from "./SegmentedControl";
 import { SECTION_LABEL, useLang, useT } from "./i18n";
 import { StoryMeta } from "./StoryMeta";
@@ -58,6 +59,14 @@ export interface Filter {
   section?: string;
 }
 
+/** A search replaces the timeline with its results while the query is set. */
+export interface SearchState {
+  query: string;
+  results: Article[] | null;
+  loading: boolean;
+  error: string | null;
+}
+
 interface Props {
   articles: Article[];
   /** Identifies the list currently shown; changing it cross-fades the river (e.g. new source). */
@@ -70,10 +79,12 @@ interface Props {
   canLoadMore: boolean;
   onLoadMore: () => void;
   onRetry: () => void;
+  search: SearchState;
+  onSearch: (query: string) => void;
 }
 
 export function River({
-  articles, listKey, filter, onFilter, loading, loadingMore, error, canLoadMore, onLoadMore, onRetry,
+  articles, listKey, filter, onFilter, loading, loadingMore, error, canLoadMore, onLoadMore, onRetry, search, onSearch,
 }: Props) {
   const lang = useLang();
   const t = useT();
@@ -92,13 +103,23 @@ export function River({
     Date.now() - mountedAt.current < LOAD_SEQUENCE_MS && scrollSpeed() < 0.5
       ? { duration: REVEAL_S, ease: EASE_OUT, delay: 0.35 + Math.min(step.current++, MAX_STAGGER_STEPS) * STAGGER_S }
       : scrollReveal();
-  const ranked = filter.source === "hn"; // HN follows /front: grouped by day, in its own ranking
-  const groups = ranked ? groupByFrontDay(articles, lang) : groupByDay(articles, lang);
+  const searching = search.query !== "";
+  // Search results are ordered by relevance in one group; the source filters still apply.
+  const results = (search.results ?? []).filter(
+    (a) => (!filter.source || a.source === filter.source) && (!filter.section || a.section === filter.section),
+  );
+  const ranked = !searching && filter.source === "hn"; // HN follows /front: grouped by day, in its own ranking
+  const groups = searching
+    ? (results.length ? [{ label: t.search.resultsFor(search.query), items: results }] : [])
+    : ranked ? groupByFrontDay(articles, lang) : groupByDay(articles, lang);
   let position = 100; // river positions start after the front-page lane
   return (
     <section className="river" aria-labelledby="river-title">
       <div className="river-head" style={{ viewTransitionName: "river-head" }}>
-        <h2 id="river-title" className="section-title">{t.latest}</h2>
+        <div className="river-title">
+          <h2 id="river-title" className="section-title">{t.latest}</h2>
+          <SearchBox query={search.query} onSearch={onSearch} />
+        </div>
         <div className="filter-rows">
           <SegmentedControl
             id="source"
@@ -139,12 +160,24 @@ export function River({
         </div>
       </div>
 
-      {error && (
-        <p className="state" role="alert">
-          {t.feedError(error)} <button className="text-button" onClick={onRetry}>{t.retry}</button>
-        </p>
+      {searching ? (
+        <>
+          {search.loading && !search.results && <p className="state" aria-live="polite">{t.search.searching}</p>}
+          {search.error && <p className="state" role="alert">{search.error.includes("429") ? t.search.limited : t.search.failed}</p>}
+          {!search.loading && !search.error && search.results && results.length === 0 && (
+            <p className="state">{t.search.none(search.query)}</p>
+          )}
+        </>
+      ) : (
+        <>
+          {error && (
+            <p className="state" role="alert">
+              {t.feedError(error)} <button className="text-button" onClick={onRetry}>{t.retry}</button>
+            </p>
+          )}
+          {!error && !loading && articles.length === 0 && <p className="state">{t.emptySource}</p>}
+        </>
       )}
-      {!error && !loading && articles.length === 0 && <p className="state">{t.emptySource}</p>}
 
       {/* Keyed by the list shown: a new source mounts a fresh list whose stories play their entrance,
           with no empty frame in between. While the next list loads, the current one dims. */}
@@ -152,7 +185,7 @@ export function River({
         key={listKey}
         className="river-lists"
         aria-busy={loading || undefined}
-        animate={{ opacity: loading && articles.length > 0 ? 0.45 : 1 }}
+        animate={{ opacity: (searching ? search.loading : loading && articles.length > 0) ? 0.45 : 1 }}
         transition={{ duration: 0.25 }}
       >
         {groups.map((g, i) => (
@@ -165,8 +198,10 @@ export function River({
         ))}
       </motion.div>
 
-      {((loading && articles.length === 0) || loadingMore) && <p className="state" aria-live="polite">{t.loadingNews}</p>}
-      {canLoadMore && !loading && !loadingMore && articles.length > 0 && (
+      {!searching && ((loading && articles.length === 0) || loadingMore) && (
+        <p className="state" aria-live="polite">{t.loadingNews}</p>
+      )}
+      {!searching && canLoadMore && !loading && !loadingMore && articles.length > 0 && (
         <button className="load-more" onClick={onLoadMore}>{t.loadMore}</button>
       )}
     </section>

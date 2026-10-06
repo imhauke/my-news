@@ -156,20 +156,18 @@ async def test_hacker_news_follows_front_page_order(session, client):
     assert [a["title"] for a in page2] == ["T4", "T3"]
 
 
-async def test_digest_endpoint_returns_latest_of_each_kind(session, client):
+async def test_digest_endpoint_returns_the_latest_brief(session, client):
     from app.models import Digest
 
-    assert (await client.get("/digest")).json() == {"general": None, "world": None, "tech": None}
+    assert (await client.get("/digest")).json() is None
     session.add_all([
         Digest(kind="general", text_en="old", text_es="viejo", article_ids=[1], model="m",
                created_at=NOW - timedelta(hours=2)),
         Digest(kind="general", text_en="new", text_es="nuevo", article_ids=[2], model="m", created_at=NOW),
-        Digest(kind="tech", text_en="chips", text_es="chips", article_ids=[3], model="m", created_at=NOW),
+        Digest(kind="tech", text_en="chips", text_es="chips", article_ids=[3], model="m", created_at=NOW),  # retired
     ])
     await session.commit()
-    body = (await client.get("/digest")).json()
-    assert body["general"]["text_es"] == "nuevo" and body["tech"]["text_en"] == "chips"
-    assert body["world"] is None
+    assert (await client.get("/digest")).json()["text_es"] == "nuevo"
 
 
 async def test_docs_can_be_turned_off():

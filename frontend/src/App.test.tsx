@@ -49,26 +49,18 @@ describe("App", () => {
       "/feed/important": [lead],
       "/feed/latest": [hn],
       "/metrics": { articles_total: 240, articles_enriched: 240, last_ingest_at: null },
-      "/digest": {
-        general: { kind: "general", text_es: "Hoy destaca la segunda vuelta en Brasil.", text_en: "Brazil heads to a runoff.",
-                   article_ids: [2], created_at: "2026-10-05T12:00:00Z" },
-        world: null,
-        tech: { kind: "tech", text_es: "En tecnología, Rust 2.0.", text_en: "In tech, Rust 2.0.",
-                article_ids: [1], created_at: "2026-10-05T12:00:00Z" },
-      },
+      "/digest": { kind: "general", text_es: "Hoy destaca la segunda vuelta en Brasil. En tecnología, Rust 2.0.",
+                   text_en: "Brazil heads to a runoff. In tech, Rust 2.0.", article_ids: [2, 1],
+                   created_at: "2026-10-05T12:00:00Z" },
     });
     render(<App />);
     const important = await screen.findByRole("region", { name: "Lo importante hoy" });
     expect(within(important).getByRole("link", { name: "Se reanudan las conversaciones en Ginebra" })).toBeInTheDocument();
-    const overview = await screen.findByText("Hoy destaca la segunda vuelta en Brasil.");
+    const overview = await screen.findByText("Hoy destaca la segunda vuelta en Brasil. En tecnología, Rust 2.0.");
     await waitFor(() => expect(overview).toBeVisible(), { timeout: 2000 }); // once the masthead has entered
-    // it is labelled as a summary of the stories below; only overviews that exist are offered
+    // one brief, labelled as a summary of the stories below, with no selector
     expect(screen.getByText("lo esencial de las noticias de abajo", { exact: false })).toBeInTheDocument();
-    const kinds = screen.getByRole("group", { name: "Enfoque del resumen" });
-    expect(within(kinds).queryByRole("button", { name: "Mundo" })).not.toBeInTheDocument();
-    fireEvent.click(within(kinds).getByRole("button", { name: "Tecnología" }));
-    expect(screen.getByText("En tecnología, Rust 2.0.").closest(".digest-text")).toHaveAttribute("data-active");
-    expect(localStorage.getItem("mynews.digest")).toBe("tech");
+    expect(screen.queryByRole("group", { name: /resumen/i })).not.toBeInTheDocument();
     expect(within(important).getByText("Mundo")).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "Sale Rust 2.0" })).toHaveAttribute("href", hn.url);
     expect(screen.getByText("Rust publica una nueva versión mayor.")).toBeInTheDocument();
@@ -232,6 +224,42 @@ describe("App", () => {
     expect(await within(panel).findByRole("alert")).toHaveTextContent("Has hecho muchas preguntas seguidas");
     const followUp = JSON.parse(calls.filter((c) => c.url.endsWith("/chat")).at(-1)!.body!);
     expect(followUp.messages.map((m: { role: string }) => m.role)).toEqual(["user", "model", "user"]);
+  });
+
+  it("shows what the community says above a Hacker News thread", async () => {
+    const insight = {
+      tone: "divided", summary_en: "Split on the licence.", summary_es: "Opiniones divididas sobre la licencia.",
+      points: [{ title_en: "Licence", title_es: "Licencia", text_en: "Some like it.", text_es: "A unos les gusta." }],
+      contributions: [{ author: "ada", text_en: "Ran it in prod.", text_es: "Lo usó en producción." }],
+      resources: [{ title: "Benchmarks", url: "https://bench.example/run" }],
+      comments_covered: 120, created_at: "2026-10-06T10:00:00Z",
+    };
+    // (another id than the other tests: insights are cached per story for a couple of minutes)
+    mockApi({ "/feed/latest": [{ ...hn, id: 21 }], "/insight": insight, "/comments": [] });
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /42 comentarios/ }));
+    const card = await screen.findByRole("region", { name: "Lo que dice la comunidad" });
+    expect(within(card).getByText("Dividida")).toBeInTheDocument();
+    expect(within(card).getByText("Opiniones divididas sobre la licencia.")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: /Benchmarks/ })).toHaveAttribute("href", "https://bench.example/run");
+    expect(within(card).getByText(/120 comentarios/)).toBeInTheDocument();
+  });
+
+  it("searches by meaning and goes back to the timeline when cleared", async () => {
+    const result: Article = { ...lead, id: 8, title_es: "Brasil irá a segunda vuelta" };
+    const calls = mockApi({ "/feed/latest": [hn], "/search": [result] });
+    render(<App />);
+    await screen.findByRole("link", { name: "Sale Rust 2.0" });
+    const box = screen.getByRole("searchbox", { name: "Buscar noticias" });
+    fireEvent.change(box, { target: { value: "elecciones" } });
+    fireEvent.submit(box.closest("form")!);
+    expect(await screen.findByRole("heading", { name: "Resultados para «elecciones»" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("link", { name: "Brasil irá a segunda vuelta" })).toBeInTheDocument());
+    expect(screen.queryByRole("link", { name: "Sale Rust 2.0" })).not.toBeInTheDocument();
+    expect(calls.some((c) => c.url.endsWith("/search?q=elecciones"))).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Borrar la búsqueda" }));
+    expect(await screen.findByRole("link", { name: "Sale Rust 2.0" })).toBeInTheDocument();
   });
 
   it("refreshes itself while visible, adding new stories on top", async () => {

@@ -255,18 +255,9 @@ button {
   margin-top: 1rem;
 }
 
-/* "In brief" label and the focus selector: it reads as a choice about this summary only. */
-.digest-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem 1.5rem;
-  margin-bottom: 0.85rem;
-}
-
+/* "In brief" label: it says the text sums up the stories below. */
 .digest-kicker {
-  margin: 0;
+  margin: 0 0 0.85rem;
   font-size: 0.875rem;
   color: var(--ink-3);
 }
@@ -274,10 +265,6 @@ button {
 .digest-kicker strong {
   color: var(--ink);
   font-weight: 700;
-}
-
-.digest-stack {
-  display: grid;
 }
 
 .digest-text {
@@ -1797,5 +1784,184 @@ button {
   background: var(--paper-raised);
   font-size: 0.75rem;
   line-height: 1.4;
+  color: var(--ink-3);
+}
+
+/* ── Search ────────────────────────────────────────────────── */
+
+.river-title {
+  display: grid;
+  gap: 0.75rem;
+  flex: 1 1 18rem;
+  min-width: 0;
+  max-width: 26rem;
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 0.8rem;
+  color: var(--ink-3);
+  pointer-events: none;
+}
+
+.search-box input {
+  width: 100%;
+  height: 2.4rem;
+  padding: 0 2.3rem 0 2.3rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--paper-raised);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9375rem;
+  transition: border-color 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+}
+
+.search-box input::-webkit-search-cancel-button {
+  appearance: none; /* our own clear button instead */
+}
+
+.search-box input:focus {
+  outline: none;
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--track);
+}
+
+.search-clear {
+  position: absolute;
+  right: 0.35rem;
+  display: inline-grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.search-clear:hover {
+  background: var(--track);
+  color: var(--ink);
+}
+
+/* ── What the community says (HN thread analysis) ──────────── */
+
+.insight {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.1rem 0.9rem;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: var(--paper);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.insight-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.insight-head h3 {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.insight-tone {
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: var(--track);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.insight-tone[data-tone="positive"] {
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.insight-tone[data-tone="skeptical"] {
+  color: var(--dislike);
+}
+
+.insight-summary {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.insight h4 {
+  margin: 1rem 0 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.insight ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.insight-points {
+  margin-top: 0.75rem !important;
+}
+
+.insight-points li,
+.insight-contributions li {
+  position: relative;
+  padding-left: 0.9rem;
+}
+
+.insight-points li + li,
+.insight-contributions li + li,
+.insight-links li + li {
+  margin-top: 0.45rem;
+}
+
+.insight-points li::before,
+.insight-contributions li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 0.3rem;
+  height: 0.3rem;
+  background: var(--ink-3);
+}
+
+.insight-author {
+  font-weight: 700;
+}
+
+.insight-links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--accent);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.insight-note {
+  margin: 0.9rem 0 0;
+  font-size: 0.75rem;
   color: var(--ink-3);
 }

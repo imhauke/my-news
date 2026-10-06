@@ -4,26 +4,19 @@ import { formatNumber, toBullets, todayLine } from "./format";
 import { useLang, useT } from "./i18n";
 import { EASE_OUT, entrance } from "./motion";
 import { SegmentedControl } from "./SegmentedControl";
-import type { DigestKind, Digests, Lang, Metrics, Theme } from "./types";
+import type { Digest, Lang, Metrics, Theme } from "./types";
 
 interface Props {
   metrics: Metrics | null;
-  digests: Digests;
-  digestKind: DigestKind;
-  onDigestKind: (k: DigestKind) => void;
+  digest: Digest | null;
   onLang: (l: Lang) => void;
   theme: Theme;
   onTheme: (t: Theme) => void;
 }
 
-const DIGEST_KINDS: DigestKind[] = ["general", "world", "tech"];
-
-export function Masthead({ metrics, digests, digestKind, onDigestKind, onLang, theme, onTheme }: Props) {
+export function Masthead({ metrics, digest, onLang, theme, onTheme }: Props) {
   const lang = useLang();
   const t = useT();
-  const available = DIGEST_KINDS.filter((k) => digests[k]);
-  const kind = available.includes(digestKind) ? digestKind : available[0] ?? "general";
-  const current = digests[kind] ?? null;
   const themes: { value: Theme; label: string; Icon: typeof Sun }[] = [
     { value: "light", label: t.themeLight, Icon: Sun },
     { value: "dark", label: t.themeDark, Icon: Moon },
@@ -55,42 +48,20 @@ export function Masthead({ metrics, digests, digestKind, onDigestKind, onLang, t
       </div>
       <div className="dateline">
         <time>{todayLine(lang)}</time>
-        {!current && metrics && metrics.articles_total > 0 && (
+        {!digest && metrics && metrics.articles_total > 0 && (
           <span>{t.dateline(formatNumber(metrics.articles_total, lang), formatNumber(metrics.articles_enriched, lang))}</span>
         )}
       </div>
-      {current && (
+      {digest && (
         <div className="digest">
-          {/* The selector only changes the focus of this summary, never the stories below. */}
-          <div className="digest-head">
-            <p className="digest-kicker"><strong>{t.digestTitle}</strong> · {t.digestNote}</p>
-            {available.length > 1 && (
-              <SegmentedControl
-                id="digest"
-                size="small"
-                label={t.digestGroup}
-                value={kind}
-                onChange={onDigestKind}
-                segments={available.map((k) => ({ value: k, label: t.digestKinds[k] }))}
-              />
-            )}
-          </div>
-          {/* All overviews share one cell: it takes the height of the longest, so switching
-              between them cross-fades without moving anything below. */}
-          <div className="digest-stack">
-            {available.map((k) => {
-              const d = digests[k]!;
-              const text = lang === "es" ? d.text_es : d.text_en;
-              return (
-                <div key={k} className="digest-text" lang={lang} data-active={k === kind || undefined} aria-hidden={k !== kind}>
-                  {/* Paragraph in two columns on wide screens; short points on phones. */}
-                  <p className="digest-paragraph">{text}</p>
-                  <ul className="digest-bullets">
-                    {toBullets(text, lang === "es" ? d.bullets_es : d.bullets_en).map((b) => <li key={b}>{b}</li>)}
-                  </ul>
-                </div>
-              );
-            })}
+          <p className="digest-kicker"><strong>{t.digestTitle}</strong> · {t.digestNote}</p>
+          {/* Paragraph in two columns on wide screens; short points on phones. */}
+          <div className="digest-text" lang={lang} data-active>
+            <p className="digest-paragraph">{lang === "es" ? digest.text_es : digest.text_en}</p>
+            <ul className="digest-bullets">
+              {toBullets(lang === "es" ? digest.text_es : digest.text_en, lang === "es" ? digest.bullets_es : digest.bullets_en)
+                .map((b) => <li key={b}>{b}</li>)}
+            </ul>
           </div>
         </div>
       )}
