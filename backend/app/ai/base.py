@@ -51,5 +51,5 @@ class AIClient(Protocol):
     def stream_chat(
         self, messages: list[tuple[str, str]], *, model: str, task: str, system: str,
         priority: Priority = Priority.FOR_YOU, max_output_tokens: int = 1024, retries: int = 1,
-        wait_seconds: float = 25,
+        wait_seconds: float = 15,
     ) -> AsyncIterator[str]: ...

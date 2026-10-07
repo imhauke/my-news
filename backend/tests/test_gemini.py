@@ -117,3 +117,31 @@ async def test_stream_chat_turns_a_silent_model_into_an_ai_error():
     respx.post(f"{BASE}/models/m:streamGenerateContent").mock(side_effect=httpx.ReadTimeout("slow"))
     with pytest.raises(AIError, match="ReadTimeout"):
         _ = [c async for c in make().stream_chat([("user", "q")], model="m", task="chat", system="s")]
+
+
+@respx.mock
+async def test_stream_chat_retries_a_silent_model_once_before_any_text():
+    route = respx.post(f"{BASE}/models/m:streamGenerateContent").mock(side_effect=[
+        httpx.ReadTimeout("slow"),
+        sse({"candidates": [{"content": {"parts": [{"text": "Hola"}]}}]}),
+    ])
+    seen: list = []
+    chunks = [c async for c in make(seen).stream_chat([("user", "q")], model="m", task="chat", system="s")]
+    assert chunks == ["Hola"] and route.call_count == 2
+    assert [s[3] for s in seen] == ["error", "ok"]
+
+
+@respx.mock
+async def test_stream_chat_does_not_restart_once_text_is_flowing():
+    class Dropped(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield b'data: {"candidates": [{"content": {"parts": [{"text": "Parcial"}]}}]}\n\n'
+            raise httpx.ReadError("connection lost")
+
+    route = respx.post(f"{BASE}/models/m:streamGenerateContent").mock(
+        return_value=httpx.Response(200, stream=Dropped(), headers={"content-type": "text/event-stream"}))
+    got: list[str] = []
+    with pytest.raises(AIError, match="ReadError"):
+        async for chunk in make().stream_chat([("user", "q")], model="m", task="chat", system="s"):
+            got.append(chunk)
+    assert got == ["Parcial"] and route.call_count == 1  # what the reader saw is not repeated

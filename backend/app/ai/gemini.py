@@ -117,11 +117,12 @@ class GeminiClient:
     async def stream_chat(
         self, messages: list[tuple[str, str]], *, model: str, task: str, system: str,
         priority: Priority = Priority.FOR_YOU, max_output_tokens: int = 1024, retries: int = 1,
-        wait_seconds: float = 25,
+        wait_seconds: float = 15,
     ) -> AsyncIterator[str]:
         """Streams the answer to a conversation of (role, text) turns, role "user" or "model".
-        429 / 5xx are retried only before the first chunk: once text is flowing it cannot restart.
-        A reader is waiting, so a model that stays silent for `wait_seconds` counts as failed."""
+        429 / 5xx and a model that stays silent for `wait_seconds` (or a dropped connection) are
+        retried only before the first chunk: once text is flowing it cannot restart. A reader is
+        waiting, so a slow model is given up on quickly."""
         body = {
             "contents": [{"role": role, "parts": [{"text": text}]} for role, text in messages],
             "systemInstruction": {"parts": [{"text": system}]},
@@ -129,6 +130,7 @@ class GeminiClient:
         }
         url = f"{self._base_url}/models/{model}:streamGenerateContent?alt=sse"
         timeout = httpx.Timeout(10, read=wait_seconds)
+        flowing = False  # a chunk has reached the reader
         for attempt in range(retries + 1):
             await self._limiter_for(model).acquire(priority)
             try:
@@ -143,6 +145,7 @@ class GeminiClient:
                                 usage = Usage(meta.get("promptTokenCount", 0), meta.get("candidatesTokenCount", 0))
                             parts = (data.get("candidates") or [{}])[0].get("content", {}).get("parts", [])
                             if text := "".join(p.get("text", "") for p in parts if not p.get("thought")):
+                                flowing = True
                                 yield text
                         await self._record(task, model, usage, "ok")
                         return
@@ -150,7 +153,11 @@ class GeminiClient:
                     detail = (await resp.aread()).decode(errors="replace")[:200]
             except httpx.HTTPError as exc:  # timeout or dropped connection
                 await self._record(task, model, Usage(), "error")
-                raise AIError(f"Gemini stream failed: {type(exc).__name__}") from exc
+                if flowing or attempt == retries:
+                    raise AIError(f"Gemini stream failed: {type(exc).__name__}") from exc
+                log.warning("gemini_stream_retry", model=model, error=type(exc).__name__)
+                await asyncio.sleep(self._backoff_base * 2**attempt + random.uniform(0, 0.25))
+                continue
             retryable = status == 429 or status >= 500
             await self._record(task, model, Usage(), "rate_limited" if status == 429 else "error")
             if not retryable or attempt == retries:

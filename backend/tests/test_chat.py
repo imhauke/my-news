@@ -21,7 +21,7 @@ class FakeAI:
         self.calls: list[tuple[str, str, list]] = []
 
     async def stream_chat(self, messages, *, model, task, system, priority, max_output_tokens, retries=1,
-                          wait_seconds=25):
+                          wait_seconds=15):
         self.calls.append((model, system, messages))
         if model in self.failing:
             raise AIError("busy")
