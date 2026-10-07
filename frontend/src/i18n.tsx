@@ -330,6 +330,23 @@ export const SECTION_LABEL: Record<string, Record<Lang, string>> = {
   front: { es: "Portada", en: "Front page" },
 };
 
-export const LangContext = createContext<Lang>("es");
+const SPAIN_TIME_ZONES = ["Europe/Madrid", "Atlantic/Canary", "Africa/Ceuta"];
+
+/**
+ * The language of a first visit: English, unless the reader is in Spain, which the browser shows
+ * through a Spanish region in its languages (es-ES, ca-ES, ...) or a Spanish time zone. There is
+ * no IP lookup. A choice saved by the reader always wins over this.
+ */
+export function defaultLang(
+  languages: readonly string[] = typeof navigator === "undefined" ? [] : navigator.languages ?? [],
+  timeZone: string | undefined = (() => {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return undefined; }
+  })(),
+): Lang {
+  const spanishRegion = languages.some((tag) => /[-_]ES$/i.test(tag));
+  return spanishRegion || (timeZone !== undefined && SPAIN_TIME_ZONES.includes(timeZone)) ? "es" : "en";
+}
+
+export const LangContext = createContext<Lang>("en");
 export const useLang = () => useContext(LangContext);
 export const useT = () => DICTS[useLang()];

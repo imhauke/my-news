@@ -7,7 +7,7 @@ import { DiscussionPanel } from "./DiscussionPanel";
 import { Footer } from "./Footer";
 import { DiscussionProvider } from "./discussion";
 import { mergeFresh } from "./format";
-import { LangContext } from "./i18n";
+import { LangContext, defaultLang } from "./i18n";
 import { Important } from "./Important";
 import { Masthead } from "./Masthead";
 import { type Filter, River, type SearchState } from "./River";
@@ -38,7 +38,7 @@ function persist(key: string, value: string) {
 }
 
 export default function App() {
-  const [lang, setLang] = useState<Lang>(() => stored("mynews.lang", ["es", "en"] as const, "es"));
+  const [lang, setLang] = useState<Lang>(() => stored("mynews.lang", ["es", "en"] as const, defaultLang()));
   const [theme, setTheme] = useState<Theme>(() => stored("mynews.theme", ["system", "light", "dark"] as const, "system"));
   const [filter, setFilter] = useState<Filter>({});
   const [shownFilter, setShownFilter] = useState<Filter>({}); // the filter the list on screen belongs to

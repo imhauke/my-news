@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { vi } from "vitest";
 import App, { POLL_MS } from "./App";
 import { resetConsent } from "./consent";
+import { defaultLang } from "./i18n";
 import { reloadLocalState } from "./local";
 import type { Article } from "./types";
 
@@ -39,6 +40,7 @@ describe("App", () => {
   beforeEach(() => {
     localStorage.clear();
     localStorage.setItem("mynews.consent.v1", "declined"); // a returning reader who already chose
+    localStorage.setItem("mynews.lang", "es"); // most tests read the Spanish interface
     reloadLocalState();
     resetConsent();
   });
@@ -66,6 +68,23 @@ describe("App", () => {
     expect(screen.getByText("Rust publica una nueva versión mayor.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /42 comentarios/ })).toBeInTheDocument();
     expect(document.documentElement.lang).toBe("es");
+  });
+
+  it("starts in English, or in Spanish for readers in Spain, and a saved choice wins", () => {
+    expect(defaultLang(["en-US", "en"], "America/New_York")).toBe("en");
+    expect(defaultLang(["es-MX", "es"], "America/Mexico_City")).toBe("en"); // Spanish speaker, not in Spain
+    expect(defaultLang(["es-ES", "es"], "Europe/Madrid")).toBe("es");
+    expect(defaultLang(["ca-ES"], "UTC")).toBe("es"); // Spanish region
+    expect(defaultLang(["en-GB"], "Atlantic/Canary")).toBe("es"); // Spanish time zone
+    expect(defaultLang([], "UTC")).toBe("en");
+  });
+
+  it("opens in English for a first-time reader outside Spain", async () => {
+    localStorage.removeItem("mynews.lang");
+    mockApi({ "/feed/latest": [hn] });
+    render(<App />);
+    expect(await screen.findByRole("link", { name: "Rust 2.0 released" })).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe("en");
   });
 
   it("switches the whole interface to English and remembers it", async () => {

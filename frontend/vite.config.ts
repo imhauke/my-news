@@ -16,6 +16,8 @@ export default defineConfig(({ mode }) => {
         "/api": { target: env.VITE_API_TARGET ?? "http://localhost:8000", rewrite: (p) => p.replace(/^\/api/, "") },
       },
     },
-    test: { environment: "jsdom", globals: true, setupFiles: ["./src/setupTests.ts"] },
+    // A fixed time zone: the default language depends on it (Spain's zones), so tests must not
+    // change with the machine they run on.
+    test: { environment: "jsdom", globals: true, setupFiles: ["./src/setupTests.ts"], env: { TZ: "UTC" } },
   };
 });
