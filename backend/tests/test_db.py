@@ -11,7 +11,9 @@ from app.ingest.sources import flatten_algolia_tree
 from app.ingest.types import ParsedArticle
 from app.models import Article, HNComment
 
-NOW = datetime(2026, 10, 5, 8, tzinfo=UTC)
+# Deduplication only compares with recent stories (app.ingest.service.DEDUP_WINDOW), measured from
+# the real clock, so the test data must be recent whenever the suite runs.
+NOW = datetime.now(UTC)
 
 
 def art(source, ext, url, title, **kw):
