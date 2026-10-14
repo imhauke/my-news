@@ -37,11 +37,14 @@ function Story({ article, position, lead }: StoryProps) {
     );
   }
   return (
-    <motion.article ref={ref} className="second" style={{ viewTransitionName: `front-${article.id}` }} {...enter}>
-      <Photo src={article.image_url} className="second-photo" width={640} />
-      <Headline article={article} position={position} />
-      {text && <p className="description" lang={lang}>{text}</p>}
-      {meta}
+    <motion.article ref={ref} className={`second${hasPhoto ? " has-photo" : ""}`}
+                    style={{ viewTransitionName: `front-${article.id}` }} {...enter}>
+      <Photo src={article.image_url} className="second-photo" width={640} onReject={() => setHasPhoto(false)} />
+      <div className="second-body">
+        <Headline article={article} position={position} />
+        {text && <p className="description" lang={lang}>{text}</p>}
+        {meta}
+      </div>
     </motion.article>
   );
 }

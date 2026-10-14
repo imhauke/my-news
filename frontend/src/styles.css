@@ -1365,12 +1365,28 @@ button {
     padding-top: 0.75rem;
   }
 
-  .second-photo {
-    display: none;
-  }
-
   .seconds {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Phones: like the list below, a small photo beside the text instead of a large one above it. */
+  .second.has-photo {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 6.5rem;
+    column-gap: 1rem;
+    align-items: start;
+  }
+
+  .second.has-photo .second-photo {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0.2rem 0 0;
+  }
+
+  .second.has-photo .second-body {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
   }
 
   .second,
