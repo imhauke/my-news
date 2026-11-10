@@ -6,13 +6,16 @@ from datetime import date
 from pydantic import BaseModel, Field
 
 # Bump when IMPORTANCE changes: the worker re-scores the last two days with the new criteria.
-SCORE_VERSION = 2
+SCORE_VERSION = 3
 
 IMPORTANCE = """importance: an integer from 1 to 100, how much the story matters to the reader this
   site is written for: a well-informed technology leader, think the CEOs of Google, Apple, OpenAI
   or Anthropic, reading their morning briefing on {today}. They follow:
   - technology and where it is going: AI models and research, chips, platforms, developer tools,
     major launches, big deals and funding, and the regulation of tech;
+  - what the big technology companies do (Google, Apple, Microsoft, Meta, Amazon, Nvidia, OpenAI,
+    Anthropic and peers): strategy, products, leadership changes, layoffs, buyouts and
+    reorganisations, earnings, antitrust and legal cases. Their own moves usually rate 60 or more;
   - security: serious vulnerabilities, breaches, attacks and state cyber activity;
   - the state of the world as far as it moves markets, supply chains or policy: wars and
     escalations, elections and changes of government in major countries, sanctions, trade,

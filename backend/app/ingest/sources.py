@@ -4,7 +4,7 @@ import calendar
 import html
 import re
 from datetime import UTC, date, datetime
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 from xml.etree import ElementTree
 
 import feedparser
@@ -26,7 +26,24 @@ ARS_FEEDS = {
 REUTERS_SITEMAP_URL = "https://www.reuters.com/arc/outboundfeeds/news-sitemap/?outputType=xml&from={offset}"
 REUTERS_SITEMAP_PAGES = 3
 REUTERS_PAGE_SIZE = 50
-REUTERS_SECTIONS = ("world", "technology")
+# Reuters files much of its tech-company news under /business/ (media-telecom, retail…), not
+# /technology/, so business is followed too: the importance score decides what reaches the top.
+REUTERS_SECTIONS = ("world", "business", "technology")
+
+# Fallback when the sitemap is refused (it sits behind a bot wall that answers 401): Google News'
+# public RSS search, one query per section. Its links go through news.google.com to Reuters and it
+# carries no image. Queries run in this order and a story found by several keeps the last
+# section, so big-tech company news filed under business ends up in technology.
+GOOGLE_NEWS_RSS = "https://news.google.com/rss/search"
+REUTERS_NEWS_QUERIES = {
+    "world": "site:reuters.com/world",
+    "business": "site:reuters.com/business",
+    "technology": [
+        "site:reuters.com/technology",
+        "site:reuters.com (Google OR Alphabet OR Apple OR Microsoft OR Meta OR Amazon OR Nvidia"
+        " OR OpenAI OR Anthropic OR TSMC OR Samsung)",
+    ],
+}
 
 # /front: the stories that made the front page on a given day. It is HN's summary of the day;
 # the live front page is too noisy. robots.txt asks for 30 s between requests.
@@ -37,6 +54,35 @@ ALGOLIA_ITEM_URL = "https://hn.algolia.com/api/v1/items/{id}"
 
 def reuters_sitemap_urls() -> list[str]:
     return [REUTERS_SITEMAP_URL.format(offset=i * REUTERS_PAGE_SIZE) for i in range(REUTERS_SITEMAP_PAGES)]
+
+
+def google_news_url(query: str) -> str:
+    return f"{GOOGLE_NEWS_RSS}?" + urlencode({"q": f"{query} when:1d", "hl": "en-US", "gl": "US", "ceid": "US:en"})
+
+
+def reuters_news_feeds() -> dict[str, list[str]]:
+    return {
+        section: [google_news_url(q) for q in ([queries] if isinstance(queries, str) else queries)]
+        for section, queries in REUTERS_NEWS_QUERIES.items()
+    }
+
+
+_REUTERS_SUFFIX = re.compile(r"\s+-\s+Reuters$")
+
+
+def parse_google_news_reuters(xml: str, section: str) -> list[ParsedArticle]:
+    """Reuters stories from a Google News search feed. Titles end in " - Reuters" (other outlets
+    quoting Reuters are skipped); the entry id is stable and becomes the external id."""
+    out = []
+    for e in feedparser.parse(xml).entries:
+        title = html.unescape(e.get("title", "")).strip()
+        if not _REUTERS_SUFFIX.search(title) or not e.get("link"):
+            continue
+        out.append(ParsedArticle(
+            source="reuters", external_id="gn:" + (e.get("id") or e["link"]), url=e["link"],
+            title=_REUTERS_SUFFIX.sub("", title), published_at=_entry_datetime(e), section=section,
+        ))
+    return out
 
 
 _FRONT_ID = re.compile(r'<tr class="athing submission" id="(\d+)"')

@@ -49,7 +49,8 @@ async def ingest_hn(day: date | None = None) -> None:
         log.info("ingest_done", source="hn", fetched=len(ids), **await upsert_articles(session, items))
 
 
-async def _ingest_feeds(source: str, feeds: dict[str, list[str]], parse) -> None:
+async def _ingest_feeds(source: str, feeds: dict[str, list[str]], parse, *, alert: bool = True) -> int:
+    """Fetches every feed concurrently and stores what they return. Returns how many items came."""
     cfg = get_settings()
     sem = asyncio.Semaphore(cfg.http_concurrency)
     pairs = [(section, url) for section, urls in feeds.items() for url in urls]
@@ -64,10 +65,12 @@ async def _ingest_feeds(source: str, feeds: dict[str, list[str]], parse) -> None
             continue
         items.extend(parse(r.text, section))
     if not items:
-        log.error("source_empty", source=source)  # alert: the source stopped returning data
-        return
+        if alert:
+            log.error("source_empty", source=source)  # alert: the source stopped returning data
+        return 0
     async with SessionLocal() as session:
         log.info("ingest_done", source=source, fetched=len(items), **await upsert_articles(session, items))
+    return len(items)
 
 
 async def ingest_ars() -> None:
@@ -75,8 +78,12 @@ async def ingest_ars() -> None:
 
 
 async def ingest_reuters() -> None:
-    await _ingest_feeds("reuters", {"sitemap": sources.reuters_sitemap_urls()},
-                        lambda xml, _section: sources.parse_reuters_sitemap(xml))
+    """The sitemap first (canonical URLs and photos); when it is refused, Google News."""
+    if await _ingest_feeds("reuters", {"sitemap": sources.reuters_sitemap_urls()},
+                           lambda xml, _section: sources.parse_reuters_sitemap(xml), alert=False):
+        return
+    log.warning("reuters_sitemap_unavailable", fallback="google_news")
+    await _ingest_feeds("reuters", sources.reuters_news_feeds(), sources.parse_google_news_reuters)
 
 
 async def refresh_hn_comments() -> None:

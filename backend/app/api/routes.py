@@ -107,7 +107,7 @@ async def latest(
 
 @router.get("/feed/important", response_model=list[ArticleOut])
 async def important(
-    session: Session, user: MaybeUser, limit: Annotated[int, Query(ge=1, le=10)] = 5
+    session: Session, user: MaybeUser, limit: Annotated[int, Query(ge=1, le=12)] = 9
 ) -> list[ArticleOut]:
     """Today's essentials: non-personalised lane with the most important stories of the last day,
     ranked by app.ranking (Gemini's importance, coverage, HN points and freshness)."""

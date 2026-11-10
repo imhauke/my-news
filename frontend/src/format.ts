@@ -5,7 +5,7 @@ export const SOURCE_LABEL: Record<Source, string> = { reuters: "Reuters", ars: "
 
 /** Sections that can be filtered within each source. HN only has /front. */
 export const SOURCE_SECTIONS: Record<Source, string[]> = {
-  reuters: ["world", "technology"],
+  reuters: ["world", "business", "technology"],
   ars: ["ai", "biz-it", "security"],
   hn: [],
 };

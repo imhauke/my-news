@@ -1,10 +1,10 @@
 # MyNews
 
-An AI-powered news feed. It aggregates Reuters (World, Technology), Ars Technica (AI, Biz & IT, Security) and the Hacker News front page, then uses Gemini to translate, describe and rank every story. The goal is a personalised "For You" feed that learns from what each reader finds interesting.
+An AI-powered news feed. It aggregates Reuters (World, Business, Technology), Ars Technica (AI, Biz & IT, Security) and the Hacker News front page, then uses Gemini to translate, describe and rank every story. The goal is a personalised "For You" feed that learns from what each reader finds interesting.
 
 ## Features
 
-- **Ingestion**: concurrent, idempotent fetching with retries and backoff; deduplication by normalised URL and headline similarity. Hacker News follows [`/front`](https://news.ycombinator.com/front), the list of stories that made the front page each day, in the same order.
+- **Ingestion**: concurrent, idempotent fetching with retries and backoff; deduplication by normalised URL and headline similarity. Reuters comes from its news sitemap and, when the sitemap is refused, from Google News' public RSS search for reuters.com. Hacker News follows [`/front`](https://news.ycombinator.com/front), the list of stories that made the front page each day, in the same order.
 - **AI enrichment** (Gemini Flash-Lite, batched, once per article): translated headline, a short description in English and Spanish, topics and a global relevance score. Descriptions are written from the original article text and skipped when there is nothing beyond the headline.
 - **Hacker News discussions**: full comment trees fetched on demand, stored as rows and rebuilt with a recursive SQL query; translated to Spanish on request. Threads with a real debate get an analysis above the comments: overall tone, main points with what each side argues, notable contributions and links commenters shared (only URLs that appear in the thread).
 - **Semantic search**: every story gets an embedding (Gemini, 768 dimensions, pgvector HNSW index), so a query finds stories by meaning, across languages: "elecciones" finds an English story about a runoff vote.

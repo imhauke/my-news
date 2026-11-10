@@ -25,7 +25,7 @@ export const fetchLatest = ({ source, section, before, offset }: LatestQuery = {
   return request<Article[]>(`/feed/latest?${q}`);
 };
 
-export const fetchImportant = () => request<Article[]>("/feed/important?limit=5");
+export const fetchImportant = () => request<Article[]>("/feed/important?limit=9");
 export const fetchMetrics = () => request<Metrics>("/metrics");
 export const fetchDigest = () => request<Digest | null>("/digest");
 export const fetchComments = (articleId: number, lang: Lang) =>

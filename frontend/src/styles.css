@@ -673,6 +673,17 @@ button {
   border-left: 1px solid var(--rule);
 }
 
+/* Up to two rows of four: each row starts without a hairline on its left and the second one is
+   ruled off from the first. */
+.second:nth-child(4n + 1)::before {
+  display: none;
+}
+
+.second:nth-child(n + 5) {
+  margin-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+}
+
 .second .headline {
   font-size: 1.1875rem;
   line-height: 1.22;

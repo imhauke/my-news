@@ -21,7 +21,7 @@ function Story({ article, position, lead }: StoryProps) {
   const [hasPhoto, setHasPhoto] = useState(Boolean(article.image_url));
   const text = description(article, lang);
   const meta = <StoryMeta article={article} />;
-  // Part of the page-load sequence: masthead, then the lead, then the four stories in order.
+  // Part of the page-load sequence: masthead, then the lead, then the other stories in order.
   const enter = { ...entrance, transition: { duration: 0.7, ease: EASE_OUT, delay: 0.12 + position * 0.08 } };
   if (lead) {
     return (

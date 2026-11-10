@@ -16,7 +16,7 @@ const es = {
     items: [
       {
         name: "Reuters",
-        sections: "Mundo y Tecnología",
+        sections: "Mundo, Empresas y Tecnología",
         text: "Agencia de noticias internacional fundada en 1851. Sus Principios de Confianza la obligan a informar con independencia, integridad y sin sesgos, y sus despachos son la base de miles de medios de todo el espectro. Aporta hechos de primera mano y verificados, sin opinión, con corresponsales en todo el mundo y gran rapidez cuando algo ocurre.",
       },
       {
@@ -176,7 +176,7 @@ const en: Dict = {
     items: [
       {
         name: "Reuters",
-        sections: "World and Technology",
+        sections: "World, Business and Technology",
         text: "International news agency founded in 1851. Its Trust Principles commit it to independence, integrity and freedom from bias, and its wires underpin thousands of outlets across the spectrum. It brings first-hand, verified facts without opinion, with correspondents around the world and great speed when news breaks.",
       },
       {
@@ -324,6 +324,7 @@ export const DICTS: Record<Lang, Dict> = { es, en };
 export const SECTION_LABEL: Record<string, Record<Lang, string>> = {
   world: { es: "Mundo", en: "World" },
   technology: { es: "Tecnología", en: "Technology" },
+  business: { es: "Empresas", en: "Business" },
   ai: { es: "IA", en: "AI" },
   "biz-it": { es: "Biz & IT", en: "Biz & IT" },
   security: { es: "Seguridad", en: "Security" },
